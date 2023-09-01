@@ -1,3 +1,5 @@
+# DA Wand - Blender Edition
+
 ## Hello
 Hey everyone, here is the first working version of the interactive demo
 of DAWAND in Blender
@@ -11,7 +13,7 @@ to other add-ons, as well as what you think the idea workflow for dawand integra
 
 I also have no idea if this can use a gpu or not (probably not)
 
-## Installation
+### Installation
 Download the my_scripts file (it has to be named this way as far as I can tell)
 If you already have other blender addons in a my_scripts folder, you should be able to move the
 DA_wand folder into your addons folder within my_scripts
@@ -43,7 +45,7 @@ and unwrap them (you can see the UV map in UV Editing)
 IF you get an error about circular imports when you click, try clicking again, sometimes it just doesn't work
 for the first click
 
-## Credits
+### Credits
 Want to acknowledge all of the non-docs sources that were extremely helpful in getting this set up!
 There are likely many more that I lost along the way
 
@@ -64,5 +66,3 @@ Initial package management:
 https://stackoverflow.com/questions/70639689/how-to-use-the-anaconda-environment-on-blender
 https://blender.stackexchange.com/questions/56011/how-to-install-pip-for-blenders-bundled-python
 
-
-# DAWand-Blender
