@@ -6,7 +6,7 @@ bl_info = {
 
 #not sure what this code does, but was recommended when making an addon
 #so may be important :)
-#but I commented it out because I was having issues with 
+#but I commented it out because I was having issues with
 #installing all the dependencies
 
 # if "bpy" in locals():
@@ -34,7 +34,7 @@ class OnClick(bpy.types.Operator):
 
     def __del__(self):
         print("End")
-    
+
     #for the modal stuff, like mousemove - not using
     def execute(self, context):
         return {'FINISHED'}
@@ -42,22 +42,22 @@ class OnClick(bpy.types.Operator):
     #main function
     def mark_seams_by_index(self, context):
         #we do the import here so we can install the dependencies
-        from . import ronteractive2 as rn 
+        from . import ronteractive2 as rn
         obj = context.object
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
-        
+
         #check if in edit mode
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
         #deselect all
         bpy.ops.mesh.select_all(action='DESELECT')
 
         # Select the face under the mouse cursor
         bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
-        
+
         # Get the selected bmesh face
         for f in bm.faces:
             if f.select:
@@ -68,14 +68,10 @@ class OnClick(bpy.types.Operator):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         target_file = os.path.join(dir_path, 'tempobj.obj')
         bpy.ops.export_scene.obj(filepath=target_file, use_selection=True)
-        #hopefully it will find where the add-on is located
-        #print(dir_path)
-        #print(target_file)
 
         mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path)
-        #print(mapping)
-        #after export we have to re`declare the bmesh
 
+        #after export we have to redeclare the bmesh
         #so we redeclare the bmesh
         bpy.ops.object.mode_set(mode='EDIT')
         obj = context.object
@@ -99,13 +95,13 @@ class OnClick(bpy.types.Operator):
 
         #then bmesh update
         bmesh.update_edit_mesh(mesh)
-        
+
         #switch to back edit mode and show selection
 
         #add a new uvmap and unwrap to it
-        bpy.ops.mesh.uv_texture_add()
+        # bpy.ops.mesh.uv_texture_add()
         bpy.ops.uv.unwrap()
-        
+
     #modal operator, not using right now, but will be needed for mousemove functions
     # def modal(self, context, event):
     #     #not sure if using modal is going to be best long term
@@ -123,7 +119,7 @@ class OnClick(bpy.types.Operator):
         #self.execute(context)
         #context.window_manager.modal_handler_add(self)
 
-        #get mouse location of initial click 
+        #get mouse location of initial click
         self.mouse_x = int(event.mouse_region_x)
         self.mouse_y = int(event.mouse_region_y)
         #switch to face mode
@@ -166,7 +162,8 @@ Dependency = namedtuple("Dependency", ["module", "package", "name"])
 # set to None, if they are equal to the module name. See import_module and ensure_and_import_module for the explanation
 # of the arguments. DO NOT use this to import other parts of your Python add-on, import them as usual with an
 # "import" statement.
-dependencies = (Dependency(module="dill", package=None, name=None),
+dependencies = (Dependency(module="wheel", package=None, name=None),
+                Dependency(module="dill", package=None, name=None),
                 Dependency(module="scipy", package=None, name=None),
                 Dependency(module="matplotlib", package=None, name=None),
                 Dependency(module="scikit-learn", package=None, name=None),
@@ -298,7 +295,7 @@ def register():
 
     for cls in preference_classes:
         bpy.utils.register_class(cls)
-    
+
     if dependencies_installed:
         bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)

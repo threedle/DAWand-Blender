@@ -33,6 +33,8 @@ At this point, a box that says "Install Dependencies" should appear
 Click this to install DAWand's dependencies to Blender's python
 This may take a second, but the box should grey out
 
+**NOTE:** If there is an error raised with the pygco install, then make sure you have python installed on your base system (e.g. brew install python), and that the system "Python.h" file can be found through setting the C_INCLUDE_PATH environment variable (**the Python version must match the Blender python version**). See [this link.](https://stackoverflow.com/questions/35778495/fatal-error-python-h-file-not-found-while-installing-opencv)
+
 After this, you're all set!
 Load in a triangle mesh, and enter either UV editing or Modeling and press tab to enter edit mode
 And there *should* now be a wand in the tools on the left!
