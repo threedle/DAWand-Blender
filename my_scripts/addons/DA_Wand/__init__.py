@@ -28,10 +28,30 @@ import numpy as np
 done_faces = [] # List of faces that have already been assigned
 vertex_set = None
 
+def uv_from_vert_first(uv_layer, v):
+    for l in v.link_loops:
+        uv_data = l[uv_layer]
+        return uv_data.uv
+    return None
+
+
+def uv_from_vert_average(uv_layer, v):
+    uv_average = np.zeros(2)
+    total = 0.0
+    for loop in v.link_loops:
+        uv_average += np.array(loop[uv_layer].uv)
+        total += 1.0
+
+    if total != 0.0:
+        return uv_average * (1.0 / total)
+    else:
+        return None
+
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
-    global vertex_set, done_faces
+    global vertex_set
+    # global done_faces
 
     #don't know what these are for, but were in the modal quickstart
     def __init__(self):
@@ -69,10 +89,12 @@ class OnClick(bpy.types.Operator):
 
         # Get the selected bmesh face
         selected_face = None
+        selected_fi = None
         for f in bm.faces:
             if f.select:
                 #print(f.index)
                 selected_face = f.index + len(bm.verts) #literally i have no clue
+                selected_fi = f.index
 
         if selected_face is None:
             self.report({'ERROR'}, "Please select a valid face.")
@@ -92,21 +114,41 @@ class OnClick(bpy.types.Operator):
             bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
                                     use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
 
-        mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path, done_faces=None)
-
         #after export we have to redeclare the bmesh
         #so we redeclare the bmesh
         bpy.ops.object.mode_set(mode='EDIT')
         obj = context.object
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
+
+        # Get faces with assigned UVs within valid texel range to ignore from predicted selection
+        uv_layer = bm.loops.layers.uv.active
+        current_uvs = None
+        if uv_layer is not None:
+            current_uvs = []
+            for face in bm.faces:
+                faceuv = []
+                for loop in face.loops:
+                    uv = loop[uv_layer].uv
+                    faceuv.append(uv)
+                current_uvs.append(faceuv)
+            current_uvs = np.array(current_uvs)
+
+        if current_uvs is None:
+            done_faces = []
+        else:
+            # Look for all faces with any valid UVs (within 0-1 range)
+            done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
+
+        mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path, done_faces=done_faces)
+
         #I guess you need this now
         bm.faces.ensure_lookup_table()
 
         for i in range(len(bm.faces)):
             if mapping[i] == 1:
                 bm.faces[i].select = True
-                done_faces.append(i)
+                # done_faces.append(i)
 
         #delete the obj file
         #not using this now, going to keep the temp file
@@ -123,7 +165,7 @@ class OnClick(bpy.types.Operator):
         #switch to back edit mode and show selection
 
         #add a new uvmap and unwrap to it
-        bpy.ops.mesh.uv_texture_add()
+        # bpy.ops.mesh.uv_texture_add()
         bpy.ops.uv.unwrap()
 
     #modal operator, not using right now, but will be needed for mousemove functions
