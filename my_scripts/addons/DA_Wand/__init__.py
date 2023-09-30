@@ -23,10 +23,15 @@ import bpy
 import bmesh
 import os
 import sys
+import numpy as np
+
+done_faces = [] # List of faces that have already been assigned
+vertex_set = None
 
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
+    global vertex_set, done_faces
 
     #don't know what these are for, but were in the modal quickstart
     def __init__(self):
@@ -47,9 +52,13 @@ class OnClick(bpy.types.Operator):
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
 
-        #check if in edit mode
+        #check if in edit mode and bm is valid (i.e. there is a selection)
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+
+        if len(bm.verts) == 0:
+            self.report({'ERROR'}, "Please select a valid face.")
             return {'CANCELLED'}
 
         #deselect all
@@ -59,17 +68,31 @@ class OnClick(bpy.types.Operator):
         bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
 
         # Get the selected bmesh face
+        selected_face = None
         for f in bm.faces:
             if f.select:
                 #print(f.index)
                 selected_face = f.index + len(bm.verts) #literally i have no clue
-        #print(selected_face)
-        #then export the obj for dawand
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        target_file = os.path.join(dir_path, 'tempobj.obj')
-        bpy.ops.export_scene.obj(filepath=target_file, use_selection=True)
 
-        mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path)
+        if selected_face is None:
+            self.report({'ERROR'}, "Please select a valid face.")
+            return {'CANCELLED'}
+
+        #print(selected_face)
+        # Only export if the current mesh vertex set has changed
+        mesh_changed = False
+        if vertex_set is None:
+            mesh_changed = True
+        else:
+            mesh_changed = not np.allclose(vertex_set, bm.verts)
+
+        if mesh_changed:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            target_file = os.path.join(dir_path, 'tempobj.obj')
+            bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
+                                    use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+
+        mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path, done_faces=None)
 
         #after export we have to redeclare the bmesh
         #so we redeclare the bmesh
@@ -83,6 +106,7 @@ class OnClick(bpy.types.Operator):
         for i in range(len(bm.faces)):
             if mapping[i] == 1:
                 bm.faces[i].select = True
+                done_faces.append(i)
 
         #delete the obj file
         #not using this now, going to keep the temp file
@@ -99,7 +123,7 @@ class OnClick(bpy.types.Operator):
         #switch to back edit mode and show selection
 
         #add a new uvmap and unwrap to it
-        # bpy.ops.mesh.uv_texture_add()
+        bpy.ops.mesh.uv_texture_add()
         bpy.ops.uv.unwrap()
 
     #modal operator, not using right now, but will be needed for mousemove functions
