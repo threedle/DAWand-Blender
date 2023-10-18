@@ -1,13 +1,10 @@
 # Project specifics
 .DS_Store
-.idea/*
 *.pyc
 *.m~
 *.vscode
 *scratch*
 lightning_logs
-*results/
-*data/
 *.polyscope*
 *.png
 *.ini
