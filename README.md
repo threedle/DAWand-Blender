@@ -1,4 +1,4 @@
-# DA Wand - Blender 0.2
+# DA Wand for Blender v0.2
 
 ### What's New
 -Reorganized much of the code in __init__.py and ronteractive2.py
