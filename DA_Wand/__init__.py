@@ -4,21 +4,6 @@ bl_info = {
     "category": "Object",
 }
 
-#not sure what this code does, but was recommended when making an addon
-#so may be important :)
-#but I commented it out because I was having issues with 
-#installing all the dependencies
-
-# if "bpy" in locals():
-#   import imp
-#   imp.reload(data)
-#   imp.reload(models)
-#   imp.reload(util)
-#   imp.reload(ronteractive2)
-# else:
-#   from . import util, data, models
-#   from . import ronteractive2
-
 from . import ronteractive2
 
 #no idea what this does but it fixed something
