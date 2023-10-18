@@ -10,25 +10,24 @@
 ### Installation
 Two ways to install
 
-*1*
+First, clone this repo or download it as a .zip and extract
 
- - Download this repo as a .zip
- - Open Blender
- - Open the addons menu (Edit->Preferences->Add-ons)
- - Click 'install' in the top right
- - Then open this zip file
- - You may have to restart Blender
+*Option 1 - Direct Blender Install (preferred)*
+ 1. Open Blender
+ 2. Open the addons menu (Edit->Preferences->Add-ons)
+ 3. Click 'install' in the top right
+ 4. Navigate DA_Wand_Blender and open DA_Wand.zip
+ 5. You may have to restart Blender
 
-*2*
- - Download this repo as a .zip and extract
- - Move the DA_Wand folder to your existing 'my_scripts/addons' folder
- - If you haven't already, set your file paths to this my_scripts folder
+*Option 2 - Blender File Paths (ideal for adjusting the code)*
+ 1. Move the DA_Wand folder inside the DA_Wand_Blender to a new or existing 'my_scripts/addons' folder (it must be named this)
+ 2. If you haven't already, set your file paths to this my_scripts folder
 
 After either of these has been done, go back to Edit->Preferences->Add-ons and search for "DA_Wand"
 
-Click the check next to DA_Wand, at this point, a box that says "Install Dependencies" should appear.
+Click the check next to DA_Wand, if you get a circular import error, just click again.
 
-Click this to install DAWand's dependencies to Blender's Python - this may take a second, but the box should grey out
+At this point, a box that says "Install Dependencies" should appear. Click this to install DAWand's dependencies to Blender's Python - this may take a second, but the box should grey out
 
 **NOTE:** If there is an error raised with the pygco install, then make sure you have python installed on your base system (e.g. brew install python), and that the system "Python.h" file can be found through setting the C_INCLUDE_PATH environment variable (**the Python version must match the Blender python version**). See [this link.](https://stackoverflow.com/questions/35778495/fatal-error-python-h-file-not-found-while-installing-opencv)
 
