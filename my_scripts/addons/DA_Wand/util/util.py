@@ -636,26 +636,33 @@ def tutte_embedding(vertices, faces):
 
     return uv_init
 
-def SLIM(mesh, v_with_holes = None, f_with_holes = None):
+def tutte_embedding_v2(vertices, faces):
+    import igl
+    bnd = igl.boundary_loop(faces)
+
+    if bnd is None:
+        raise ValueError(f"tutte_embedding: mesh has no boundary! set fixclosed = True to try to cut to disk topology.")
+
+    ## Map the boundary to a circle
+    bnd_uv = igl.map_vertices_to_circle(vertices, bnd)
+    uv_initial_guess = igl.harmonic(vertices, faces, bnd, bnd_uv, 1)
+
+    ## Harmonic parametrization for the internal vertices
+    assert not np.isnan(bnd).any(), f"NaN found in boundary loop!"
+    assert not np.isnan(uv_initial_guess).any(), f"NaN found in tutte initialized UVs!"
+
+    return uv_initial_guess, bnd, bnd_uv
+
+def SLIM(vertices, faces, iters = 500):
     # SLIM parameterization
     # Initialize using Tutte embedding
     import igl
-    from models.layers.meshing import Mesh
 
-    vs, fs, _ = mesh.export_soup()
-    uv_init = tutte_embedding(vs, fs)
+    vertices = vertices.astype(np.double)
+    uv_init, bnd, bnd_uv = tutte_embedding_v2(vertices, faces)
 
-    # Need to subset back non-disk topology if filled hole
-    if v_with_holes is not None and f_with_holes is not None:
-        # Only select UVs relevant to the
-        uv_init = uv_init[v_with_holes]
-        sub_faces = fs[f_with_holes]
-        # NOTE: vertices should now be indexed in the same way as the original sub_faces
-        submesh = Mesh(uv_init, sub_faces)
-        vs, fs, _ = submesh.export_soup()
-
-    slim = igl.SLIM(vs, fs, uv_init, np.ones((1,1)),np.expand_dims(uv_init[0,:],0), igl.SLIM_ENERGY_TYPE_SYMMETRIC_DIRICHLET, 1.0e1)
-    slim.solve(500)
+    slim = igl.SLIM(vertices, faces, uv_init, bnd, bnd_uv, igl.SLIM_ENERGY_TYPE_SYMMETRIC_DIRICHLET, 4.01)
+    slim.solve(iters)
     slim_uv = slim.vertices()
     slim_uv -= slim_uv.mean(axis = 0)
     return slim_uv, slim.energy()

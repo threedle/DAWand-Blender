@@ -24,16 +24,23 @@ import bmesh
 import os
 import sys
 import numpy as np
+from enum import Enum
+
+class UVType(Enum):
+    BLENDERUNWRAP = 0
+    SLIM = 1
+    LSCM = 2
+    TUTTE = 3
 
 done_faces = [] # List of faces that have already been assigned
 vertex_set = None
+uvtype = UVType.SLIM
 
 def uv_from_vert_first(uv_layer, v):
     for l in v.link_loops:
         uv_data = l[uv_layer]
         return uv_data.uv
     return None
-
 
 def uv_from_vert_average(uv_layer, v):
     uv_average = np.zeros(2)
@@ -141,6 +148,7 @@ class OnClick(bpy.types.Operator):
             done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
 
         mapping = rn.oncall(selected_face, 'tempobj.obj', dir_path, done_faces=done_faces)
+        selected_faces = np.where(mapping == 1)[0]
 
         #I guess you need this now
         bm.faces.ensure_lookup_table()
@@ -166,7 +174,35 @@ class OnClick(bpy.types.Operator):
 
         #add a new uvmap and unwrap to it
         # bpy.ops.mesh.uv_texture_add()
-        bpy.ops.uv.unwrap()
+        if uvtype == UVType.BLENDERUNWRAP:
+            bpy.ops.uv.unwrap()
+        elif uvtype == UVType.SLIM:
+            from DA_Wand.util.util import SLIM
+            from DA_Wand.meshing.io import PolygonSoup
+            from DA_Wand.meshing.mesh import Mesh
+
+            soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
+            mesh = Mesh(soup.vertices, soup.indices)
+            subvs, subfs = mesh.export_submesh(selected_faces)
+
+            v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
+            v_to_subv[mesh.faces[selected_faces].flatten()] = subfs.flatten()
+
+            slimuv, slimenergy = SLIM(subvs, subfs)
+
+            uv_layer = bm.loops.layers.uv.active
+
+            # Define a uv layer if one doesn't exist
+            if uv_layer is None:
+                bm.loops.layers.uv.new("DAWandUV")
+                uv_layer = bm.loops.layers.uv.get("DAWandUV")
+
+            for fi in selected_faces:
+                face = bm.faces[fi]
+                for loop in face.loops:
+                    v = loop.vert
+                    subv = v_to_subv[v.index]
+                    loop[uv_layer].uv = slimuv[subv]
 
     #modal operator, not using right now, but will be needed for mousemove functions
     # def modal(self, context, event):
@@ -237,6 +273,7 @@ dependencies = (Dependency(module="wheel", package=None, name=None),
                 Dependency(module="potpourri3d", package=None, name=None),
                 Dependency(module="pygco", package=None, name=None),
                 Dependency(module="torch", package=None, name=None),
+                Dependency(module="igl", package=None, name=None),
                 )
 
 dependencies_installed = False
@@ -353,6 +390,7 @@ def register():
         import matplotlib
         import pygco
         import torch
+        import igl
     except:
         dependencies_installed = False
     else:
