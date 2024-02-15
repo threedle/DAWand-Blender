@@ -1,13 +1,19 @@
 # Project specifics
 .DS_Store
+*/.DS_Store
+*/*/.DS_Store
+.idea/*
 *.pyc
 *.m~
 *.vscode
 *scratch*
 lightning_logs
+*results/
+*data/
 *.polyscope*
 *.png
 *.ini
+tempobj*
 
 # data files
 **cache**
