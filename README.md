@@ -1,11 +1,8 @@
-# DA Wand for Blender v0.2
+# DA Wand for Blender v0.3
 
 ### What's New
- - Reorganized much of the code in init and ronteractive2
- - Added graphcuts and floodfill options (though still reloading the model each time)
- - These can be accessed in the 'n' menu in Blender
- - I *think* the circular import error has been fixed
- - Improved install
+ - Added new 'overwrite' and 'extension' modes
+ - Install should be better BUT reload isn't working anymore, so you must restart Blender if you want to change any code
 
 ### Installation
 Two ways to install

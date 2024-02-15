@@ -1,6 +1,6 @@
 import bpy
 import bmesh
-from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty, StringProperty
+from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty, StringProperty, EnumProperty
 
 from . data.intseg_data import IntSegData
 import dill as pickle
@@ -222,10 +222,20 @@ class OnClick(bpy.types.Operator):
         ff = wm.floodfill
         gc = wm.graphcuts
 
+        #some set up for the modes 
+        mode = wm.mode_enum
+        prevselected = []
+
         #check if in edit mode
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
+        
+
+        if mode == "EX":
+            for f in bm.faces:
+                if f.select:
+                    prevselected.append(f.index)
         
         #deselect all
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -236,35 +246,36 @@ class OnClick(bpy.types.Operator):
         # Get the selected bmesh face
         for f in bm.faces:
             if f.select:
-                #print(f.index)
                 selected_face = f.index + len(bm.verts) #literally i have no clue
-        #print(selected_face)
+
         #then export the obj for dawand
         dir_path = os.path.dirname(os.path.realpath(__file__))
         target_file = os.path.join(dir_path, 'tempobj.obj')
         bpy.ops.export_scene.obj(filepath=target_file, use_selection=True)
         #hopefully it will find where the add-on is located
-        #print(dir_path)
-        #print(target_file)
 
-        mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc)
-        #print(mapping)
-        #after export we have to re`declare the bmesh
+        #to prevent errors when misclick
+        #will make more rigorous later
+        try:
+            mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc)
+        except UnboundLocalError:
+            return{'FINISHED'}
+        #after export we have to redeclare the bmesh
 
         #so we redeclare the bmesh
         bpy.ops.object.mode_set(mode='EDIT')
         obj = context.object
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
-        #I guess you need this now
         bm.faces.ensure_lookup_table()
 
         for i in range(len(bm.faces)):
             if mapping[i] == 1:
                 bm.faces[i].select = True
-
-
-
+        if mode == "EX":
+            for face in prevselected:
+                bm.faces[face].select = True
+        
         #then bmesh update
         bmesh.update_edit_mesh(mesh)
         
@@ -322,15 +333,23 @@ class DA_Menu(bpy.types.Panel):
     bl_idname = "DA_Wand_layout"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'DA_Wand'
+    bl_category = 'DA Wand'
 
+
+    
     def draw(self, context):
         layout = self.layout
 
         wm = context.window_manager
 
         row = layout.row()
-        row.label(text="DAWand Settings")
+        row.label(text="Mode")
+
+        row = layout.row()
+        layout.prop(wm, "mode_enum")
+        
+        row = layout.row()
+        row.label(text="Segmentation Options")
 
         row = layout.row()
         row.prop(wm, 'floodfill')
@@ -338,14 +357,23 @@ class DA_Menu(bpy.types.Panel):
         row = layout.row()
         row.prop(wm, 'graphcuts')
 
-        
 
 def register_properties():
     bpy.types.WindowManager.floodfill = BoolProperty(name='Flood Fill', default=True,
                                                     description='Fills gaps, leave on for best results')
     bpy.types.WindowManager.graphcuts = BoolProperty(name='Graph Cuts', default=True, 
                                                      description='I actually dont know what this does')
+    bpy.types.WindowManager.mode_enum = EnumProperty(
+        name = "",
+        description = "select an option",
+        items = [
+            ('OV', 'Overwrite', 'Successive clicks will overwrite your current selection'),
+            ('EX', 'Extension', 'Successive clicks extend the current selection')
+        ]
+    )
+
 
 def unregister_properties():
     del bpy.types.WindowManager.floodfill
     del bpy.types.WindowManager.graphcuts
+    del bpy.types.WindowManager.mode_enum

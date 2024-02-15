@@ -4,24 +4,11 @@ bl_info = {
     "category": "Object",
 }
 
-from . import ronteractive2
-
-#no idea what this does but it fixed something
-from importlib import reload
-try:
-    reload(ronteractive2)
-except NameError:
-    pass
-
 import bpy
 import os
 import sys
 
-from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
-
 #this is setup and dependency install
-
-
 import subprocess
 from collections import namedtuple
 
@@ -125,9 +112,7 @@ class EXAMPLE_OT_install_dependencies(bpy.types.Operator):
         global dependencies_installed
         dependencies_installed = True
 
-        # Register the panels, operators, etc. since dependencies are installed
-        bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
-        bpy.utils.register_class(OnClick)
+        register()
 
         return {"FINISHED"}
 
@@ -142,6 +127,8 @@ class EXAMPLE_preferences(bpy.types.AddonPreferences):
 
 preference_classes = (EXAMPLE_OT_install_dependencies,
                       EXAMPLE_preferences)
+
+
 
 
 def register():
@@ -160,19 +147,27 @@ def register():
     else:
         dependencies_installed = True
 
-
-    for cls in preference_classes:
-        bpy.utils.register_class(cls)
+    #if we've already registered them
+    try:
+        for cls in preference_classes:
+            bpy.utils.register_class(cls)
+    except ValueError:
+        pass
     
     if dependencies_installed:
-        register_properties()
+        from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
+        
         bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)
         bpy.utils.register_class(DA_Menu)
+        register_properties()
     else:
         return
 
 def unregister():
+    
+    from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
+
     for cls in preference_classes:
         bpy.utils.unregister_class(cls)
 
