@@ -2,6 +2,7 @@
 
 ### What's New
  - Added new 'overwrite' and 'extension' modes
+ - Added Slim / Blender unwrap UV settings
  - Install should be better BUT reload isn't working anymore, so you must restart Blender if you want to change any code
 
 ### Installation

@@ -18,6 +18,7 @@ import os
 import torch 
 import random 
 from pathlib import Path
+from enum import Enum
 
 
 
@@ -38,7 +39,7 @@ def run_forward_pass(model, dataset, face_list, return_features=False):
     return preds 
 
 
-def oncall(point, meshfile, meshdir, ff, gc):
+def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
 
     #no parser hehe
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -197,6 +198,28 @@ def oncall(point, meshfile, meshdir, ff, gc):
 #Blender Call
 
 
+
+done_faces = [] # List of faces that have already been assigned
+vertex_set = None
+
+def uv_from_vert_first(uv_layer, v):
+    for l in v.link_loops:
+        uv_data = l[uv_layer]
+        return uv_data.uv
+    return None
+
+def uv_from_vert_average(uv_layer, v):
+    uv_average = np.zeros(2)
+    total = 0.0
+    for loop in v.link_loops:
+        uv_average += np.array(loop[uv_layer].uv)
+        total += 1.0
+
+    if total != 0.0:
+        return uv_average * (1.0 / total)
+    else:
+        return None
+
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
@@ -226,6 +249,7 @@ class OnClick(bpy.types.Operator):
         mode = wm.mode_enum
         prevselected = []
 
+        uvmode = wm.uv_mode
         #check if in edit mode
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
@@ -244,22 +268,37 @@ class OnClick(bpy.types.Operator):
         bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
         
         # Get the selected bmesh face
+        selected_face = None
+        selected_fi = None
         for f in bm.faces:
             if f.select:
                 selected_face = f.index + len(bm.verts) #literally i have no clue
+                selected_fi = f.index
+    
+        if selected_face is None:
+            self.report({'ERROR'}, "Please select a valid face.")
+            return {'CANCELLED'}
 
-        #then export the obj for dawand
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        target_file = os.path.join(dir_path, 'tempobj.obj')
-        bpy.ops.export_scene.obj(filepath=target_file, use_selection=True)
-        #hopefully it will find where the add-on is located
+        mesh_changed = False
+        if vertex_set is None:
+            mesh_changed = True
+        else:
+            mesh_changed = not np.allclose(vertex_set, bm.verts)
 
-        #to prevent errors when misclick
-        #will make more rigorous later
-        try:
-            mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc)
-        except UnboundLocalError:
-            return{'FINISHED'}
+         # Only export if the current mesh vertex set has changed
+        mesh_changed = False
+        if vertex_set is None:
+            mesh_changed = True
+        else:
+            mesh_changed = not np.allclose(vertex_set, bm.verts)
+
+        if mesh_changed:
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            target_file = os.path.join(dir_path, 'tempobj.obj')
+            bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
+                                    use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+
+    
         #after export we have to redeclare the bmesh
 
         #so we redeclare the bmesh
@@ -267,6 +306,29 @@ class OnClick(bpy.types.Operator):
         obj = context.object
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
+
+        # Get faces with assigned UVs within valid texel range to ignore from predicted selection
+        uv_layer = bm.loops.layers.uv.active
+        current_uvs = None
+        if uv_layer is not None:
+            current_uvs = []
+            for face in bm.faces:
+                faceuv = []
+                for loop in face.loops:
+                    uv = loop[uv_layer].uv
+                    faceuv.append(uv)
+                current_uvs.append(faceuv)
+            current_uvs = np.array(current_uvs)
+
+        if current_uvs is None:
+            done_faces = []
+        else:
+            # Look for all faces with any valid UVs (within 0-1 range)
+            done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
+
+        mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
+        selected_faces = np.where(mapping == 1)[0]
+
         bm.faces.ensure_lookup_table()
 
         for i in range(len(bm.faces)):
@@ -283,7 +345,34 @@ class OnClick(bpy.types.Operator):
 
         #replaces the current uv unwrap = may want to change this later
         #bpy.ops.mesh.uv_texture_add() 
-        bpy.ops.uv.unwrap()
+        if uvmode == "BLENDERUNWRAP":
+            bpy.ops.uv.unwrap()
+        elif uvmode == "SLIM":
+            from DA_Wand.util.util import SLIM
+
+            soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
+            mesh = Mesh(soup.vertices, soup.indices)
+            subvs, subfs = mesh.export_submesh(selected_faces)
+
+            v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
+            v_to_subv[mesh.faces[selected_faces].flatten()] = subfs.flatten()
+
+            slimuv, slimenergy = SLIM(subvs, subfs)
+
+            uv_layer = bm.loops.layers.uv.active
+
+            # Define a uv layer if one doesn't exist
+            if uv_layer is None:
+                bm.loops.layers.uv.new("DAWandUV")
+                uv_layer = bm.loops.layers.uv.get("DAWandUV")
+
+            for fi in selected_faces:
+                face = bm.faces[fi]
+                for loop in face.loops:
+                    v = loop.vert
+                    subv = v_to_subv[v.index]
+                    loop[uv_layer].uv = slimuv[subv]
+        
         
     def modal(self, context, event):
 
@@ -349,6 +438,12 @@ class DA_Menu(bpy.types.Panel):
         layout.prop(wm, "mode_enum")
         
         row = layout.row()
+        row.label(text="UV Mode")
+
+        row = layout.row()
+        layout.prop(wm, "uv_mode")
+
+        row = layout.row()
         row.label(text="Segmentation Options")
 
         row = layout.row()
@@ -356,6 +451,8 @@ class DA_Menu(bpy.types.Panel):
 
         row = layout.row()
         row.prop(wm, 'graphcuts')
+
+        
 
 
 def register_properties():
@@ -371,6 +468,20 @@ def register_properties():
             ('EX', 'Extension', 'Successive clicks extend the current selection')
         ]
     )
+    bpy.types.WindowManager.uv_mode = EnumProperty(
+        name="",
+        description = "select and option",
+        items = [
+            ('BLENDERUNWRAP', 'Blender Unwrap', "Uses Blender's built-in unwrap"),
+            ('SLIM', 'Slim', 'Uses SLIM Unwrap'),
+            ('NONE', "Don't Unwrap", "Doesn't unwrap on click")
+        ]
+    )
+class UVType(Enum):
+    BLENDERUNWRAP = 0
+    SLIM = 1
+    LSCM = 2
+    TUTTE = 3
 
 
 def unregister_properties():

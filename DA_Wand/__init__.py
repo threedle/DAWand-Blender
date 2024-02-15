@@ -26,6 +26,7 @@ dependencies = (Dependency(module="dill", package=None, name=None),
                 Dependency(module="potpourri3d", package=None, name=None),
                 Dependency(module="pygco", package=None, name=None),
                 Dependency(module="torch", package=None, name=None),
+                Dependency(module="libigl", package=None, name=None),
                 )
 
 dependencies_installed = False
@@ -142,6 +143,7 @@ def register():
         import matplotlib
         import pygco
         import torch
+        import igl
     except:
         dependencies_installed = False
     else:
