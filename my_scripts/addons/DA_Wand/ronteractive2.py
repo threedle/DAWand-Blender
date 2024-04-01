@@ -2,21 +2,18 @@ import bpy
 import bmesh
 from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty, StringProperty, EnumProperty
 
-from . data.intseg_data import IntSegData
+from . data.dawand_data import DAWandData
 import dill as pickle
 import sys
 sys.path.append('../DA_Wand')
-from DA_Wand.models.layers.meshing.analysis import computeFaceAreas, computeDihedrals
 from DA_Wand.models import create_model
 from DA_Wand.models.layers.meshing import Mesh
 from DA_Wand.models.layers.meshing.io import PolygonSoup
-from DA_Wand.models.layers.meshing.edit import VertexStarCollapse, EdgeCollapse
-from DA_Wand.models.networks import floodfill_scalar_v1, floodfill_scalar_v2
-from DA_Wand.util.util import graphcuts 
+from DA_Wand.models.networks import floodfill_scalar_v2
+from DA_Wand.util.util import graphcuts
 import numpy as np
-import os 
-import torch 
-import random 
+import os
+import torch
 from pathlib import Path
 from enum import Enum
 
@@ -24,19 +21,19 @@ from enum import Enum
 
 #Demo code
 def run_forward_pass(model, dataset, face_list, return_features=False):
-    # TODO: Will likely need to debug this so all the preprocessing works on multiple anchors 
+    # TODO: Will likely need to debug this so all the preprocessing works on multiple anchors
     dataset.update_anchor(face_list)
-    input_meta = dataset[0] 
+    input_meta = dataset[0]
     input_meta = {key: [val] for key,val in input_meta.items()}
-    
+
     model.set_input(input_meta)
-    
+
     with torch.no_grad():
         preds, features = model.forward()
-        
-        if return_features: 
+
+        if return_features:
             return preds, features
-    return preds 
+    return preds
 
 
 def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
@@ -47,85 +44,85 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
     modelname = 'dawand'
     optname = 'opt'
     normalize = 'store_true'
-    
+
     with open(os.path.join(modeldir, f"{optname}.pkl"), 'rb') as f:
         opt = pickle.load(f)
     opt.export_save_path = modeldir
-    opt.dataroot = meshdir 
+    opt.dataroot = meshdir
     opt.test_dir = meshdir
-    opt.network_load_path = modeldir 
-    
-    # TODO: temporary opt fix 
+    opt.network_load_path = modeldir
+
+    # TODO: temporary opt fix
     opt.arch = "meshcnn"
-    
-    # Turn off all extraneous settings 
+
+    # Turn off all extraneous settings
     opt.name = ""
-    opt.time = False 
+    opt.time = False
     opt.semantic_loss = False
-    opt.is_train = False 
-    opt.testaug = False 
+    opt.is_train = False
+    opt.testaug = False
     opt.num_aug = 0
     opt.serial_batches = True  # no shuffle
-    opt.time = False 
+    opt.time = False
     opt.export_view_freq = 0
-    opt.export_preds = False 
-    opt.continue_train = False 
-    opt.floodfillparam = False 
+    opt.export_preds = False
+    opt.continue_train = False
+    opt.floodfillparam = False
     opt.test_aug = False
     opt.which_epoch = modelname
     opt.ff_epoch = modelname
-    opt.export_pool = False 
-    opt.distortion_loss = None 
+    opt.export_pool = False
+    opt.distortion_loss = None
     opt.delayed_distortion_epochs = float('inf')
     opt.solo_distortion = False
-    opt.shuffle_topo = False 
-    opt.num_threads = 0 
-    opt.supervised = False 
-    opt.gcsupervision = False 
-    opt.floodfillparam = False 
-    
-    # NOTE: hacky way to guarantee only 1 copy of mesh in dataset but it works 
+    opt.shuffle_topo = False
+    opt.num_threads = 0
+    opt.supervised = False
+    opt.gcsupervision = False
+    opt.floodfillparam = False
+
+    # NOTE: hacky way to guarantee only 1 copy of mesh in dataset but it works
     meshname = meshfile.replace(".obj", "")
-    opt.subset = [f"{meshname}_0"] 
+    opt.subset = [f"{meshname}_0"]
     opt.max_dataset_size = 1
     opt.max_sample_size = 1
-    opt.interactive = True 
-        
-    opt.overwritecache = True 
-    # opt.overwriteopcache = True   
-    opt.overwriteanchorcache = True   
-    opt.overwritemeanstd = True  
+    opt.interactive = True
+
+    opt.overwritecache = False
+    # opt.overwriteopcache = True
+    opt.overwriteanchorcache = True
+    opt.overwritemeanstd = True
     if not torch.cuda.is_available():
         opt.gpu_ids = []
     else:
-        opt.gpu_ids = [0] 
+        opt.gpu_ids = [0]
     model = create_model(opt)
     print(f"Model loaded from {model.save_dir}")
-    
-    dataset = IntSegData(opt)
+
+    dataset = DAWandData(opt, meshfile)
     soup = PolygonSoup.from_obj(os.path.join(meshdir, meshfile))
     mesh = Mesh(soup.vertices, soup.indices)
-    
+
     if normalize:
-        mesh.normalize() 
+        mesh.normalize()
         mesh.export_obj(meshdir, f"{meshname}_norm")
-    
+
     current_index_list = []
-    current_anchor_pos = [] 
-    previous_preds = None 
+    current_anchor_pos = []
+    previous_preds = None
     preds = None
-    pred_cache = {} 
+    pred_cache = {}
     mode = "model"
     prev_mode = "model"
     mode_options = ['model']
-    
-    # Default settings 
-    alpha = 1 
+
+    # Default settings
+    alpha = 1
     beta = 0.7
-    gamma = 0.5 
-    dthreshold = 0.3 
-    ethreshold = 100 
-    method = None 
+    gamma = 0.5
+    dthreshold = 0.3
+    ethreshold = 100
+    method = None
     if ff and gc:
         postprocess = ["gc", "ff"]
     elif ff:
@@ -134,45 +131,45 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
         postprocess = ["gc"]
     else:
         postprocess = []
-    ff = True 
-    gc = True 
-    uvmode = False 
-    include_anchor = True 
-    patchgrow = False 
-    face_index = None 
+    ff = True
+    gc = True
+    uvmode = False
+    include_anchor = True
+    patchgrow = False
+    face_index = None
     changed = True
 
-    isometric = 0 
-        
+    isometric = 0
+
     vertices, faces, _ = mesh.export_soup()
     vrange = np.arange(len(vertices))
     frange = np.arange(len(vertices), len(vertices) + len(faces))
-    
+
     current_struct = ''
 
     #we'll need to get this index from blender
     structure, index = 'mesh', point #this is where it gets the currently selected guy
-    
+
     #shouldn't need any postprocess options lol
 
     # == Execute inference if change detected in selection (append anchor to inference) ==
     face_index = index - min(frange)
     new_selection = (face_index not in current_index_list)
-    if structure == "mesh" and new_selection and index in frange: 
+    if structure == "mesh" and new_selection and index in frange:
         print(f"Current anchors list: {current_index_list}, New anchor: {face_index}")
         current_index_list = [face_index]
-        current_anchor_pos = [] 
-        preds = None 
-        previous_preds = None 
-        
-        # Run inference on new anchor set 
-        if mode == "model": 
+        current_anchor_pos = []
+        preds = None
+        previous_preds = None
+
+        # Run inference on new anchor set
+        if mode == "model":
             preds = run_forward_pass(model, dataset, current_index_list)
-            preds = preds.squeeze().detach().cpu().numpy() 
-            # Reset the pred cache 
+            preds = preds.squeeze().detach().cpu().numpy()
+            # Reset the pred cache
             pred_cache = {'model': preds}
 
-            # Run postprocesses 
+            # Run postprocesses
             predkey = "model"
             for post in postprocess:
                 if post == "gc":
@@ -182,18 +179,18 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
                 if post == "ff":
                     preds = floodfill_scalar_v2(mesh, torch.from_numpy(preds).float(), face_index, previous_preds = torch.from_numpy(previous_preds).float() if (previous_preds is not None and patchgrow) else None).detach().numpy()
                     predkey += "_ff"
-                    pred_cache[predkey] = preds 
-                        
-            previous_preds = preds 
+                    pred_cache[predkey] = preds
+
+            previous_preds = preds
             hard_preds = np.round(preds)
-            
+
         anchor_pos = np.mean([mesh.vertices[v.index] for v in mesh.topology.faces[face_index].adjacentVertices()], axis=0, keepdims=True)
         current_anchor_pos.append(anchor_pos)
-        
-        # Anchor colors are all fixed except most recent 
+
+        # Anchor colors are all fixed except most recent
         anchor_colors = [[0,0,1] for _ in current_anchor_pos[:-1]] + [[0,1,0]]
         return(hard_preds)
-    
+
 
 #Blender Call
 
@@ -230,7 +227,7 @@ class OnClick(bpy.types.Operator):
 
     def __del__(self):
         print("End")
-    
+
     #for the modal stuff, like mousemove - not using
     def execute(self, context):
         return {'FINISHED'}
@@ -245,7 +242,7 @@ class OnClick(bpy.types.Operator):
         ff = wm.floodfill
         gc = wm.graphcuts
 
-        #some set up for the modes 
+        #some set up for the modes
         mode = wm.mode_enum
         prevselected = []
 
@@ -254,19 +251,19 @@ class OnClick(bpy.types.Operator):
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
 
         if mode == "EX":
             for f in bm.faces:
                 if f.select:
                     prevselected.append(f.index)
-        
+
         #deselect all
         bpy.ops.mesh.select_all(action='DESELECT')
 
         # Select the face under the mouse cursor
         bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
-        
+
         # Get the selected bmesh face
         selected_face = None
         selected_fi = None
@@ -274,7 +271,7 @@ class OnClick(bpy.types.Operator):
             if f.select:
                 selected_face = f.index + len(bm.verts) #literally i have no clue
                 selected_fi = f.index
-    
+
         if selected_face is None:
             self.report({'ERROR'}, "Please select a valid face.")
             return {'CANCELLED'}
@@ -285,7 +282,7 @@ class OnClick(bpy.types.Operator):
         else:
             mesh_changed = not np.allclose(vertex_set, bm.verts)
 
-         # Only export if the current mesh vertex set has changed
+        # Only export if the current mesh vertex set has changed
         mesh_changed = False
         if vertex_set is None:
             mesh_changed = True
@@ -298,7 +295,7 @@ class OnClick(bpy.types.Operator):
             bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
                                     use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
 
-    
+
         #after export we have to redeclare the bmesh
 
         #so we redeclare the bmesh
@@ -337,25 +334,29 @@ class OnClick(bpy.types.Operator):
         if mode == "EX":
             for face in prevselected:
                 bm.faces[face].select = True
-        
+
         #then bmesh update
         bmesh.update_edit_mesh(mesh)
-        
+
         #switch to back edit mode and show selection
 
         #replaces the current uv unwrap = may want to change this later
-        #bpy.ops.mesh.uv_texture_add() 
+        #bpy.ops.mesh.uv_texture_add()
         if uvmode == "BLENDERUNWRAP":
             bpy.ops.uv.unwrap()
         elif uvmode == "SLIM":
             from DA_Wand.util.util import SLIM
 
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
-            mesh = Mesh(soup.vertices, soup.indices)
-            subvs, subfs = mesh.export_submesh(selected_faces)
 
-            v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
-            v_to_subv[mesh.faces[selected_faces].flatten()] = subfs.flatten()
+            # Get submesh selection
+            # NOTE: Don't build Mesh object if possible! Expensive ...
+            selectfs = soup.indices[selected_faces]
+            selectvs = np.sort(np.unique(selectfs))
+            subvs = soup.vertices[selectvs]
+            vmap = np.zeros(len(soup.vertices), dtype=np.int64)
+            vmap[selectvs] = np.arange(len(subvs))
+            subfs = vmap[selectfs]
 
             slimuv, slimenergy = SLIM(subvs, subfs)
 
@@ -366,14 +367,15 @@ class OnClick(bpy.types.Operator):
                 bm.loops.layers.uv.new("DAWandUV")
                 uv_layer = bm.loops.layers.uv.get("DAWandUV")
 
+            ## Update UVs of selected faces
             for fi in selected_faces:
                 face = bm.faces[fi]
                 for loop in face.loops:
                     v = loop.vert
-                    subv = v_to_subv[v.index]
+                    subv = vmap[v.index]
                     loop[uv_layer].uv = slimuv[subv]
-        
-        
+
+
     def modal(self, context, event):
 
         context.area.tag_redraw()
@@ -386,7 +388,7 @@ class OnClick(bpy.types.Operator):
         #self.execute(context)
         #context.window_manager.modal_handler_add(self)
 
-        #get mouse location of initial click 
+        #get mouse location of initial click
         self.mouse_x = int(event.mouse_region_x)
         self.mouse_y = int(event.mouse_region_y)
         #switch to face mode
@@ -425,7 +427,7 @@ class DA_Menu(bpy.types.Panel):
     bl_category = 'DA Wand'
 
 
-    
+
     def draw(self, context):
         layout = self.layout
 
@@ -436,7 +438,7 @@ class DA_Menu(bpy.types.Panel):
 
         row = layout.row()
         layout.prop(wm, "mode_enum")
-        
+
         row = layout.row()
         row.label(text="UV Mode")
 
@@ -452,13 +454,13 @@ class DA_Menu(bpy.types.Panel):
         row = layout.row()
         row.prop(wm, 'graphcuts')
 
-        
+
 
 
 def register_properties():
     bpy.types.WindowManager.floodfill = BoolProperty(name='Flood Fill', default=True,
                                                     description='Fills gaps, leave on for best results')
-    bpy.types.WindowManager.graphcuts = BoolProperty(name='Graph Cuts', default=True, 
+    bpy.types.WindowManager.graphcuts = BoolProperty(name='Graph Cuts', default=True,
                                                      description='I actually dont know what this does')
     bpy.types.WindowManager.mode_enum = EnumProperty(
         name = "",

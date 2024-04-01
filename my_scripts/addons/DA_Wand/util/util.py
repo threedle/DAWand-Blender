@@ -4,13 +4,10 @@ import numpy as np
 import os
 import time
 from pathlib import Path
-import scipy
 import shutil
-#import fresnel don't need for blender I guess
 import sys
 sys.path.append('../DA_Wand')
 from DA_Wand.models.layers.meshing.analysis import computeDihedrals
-
 
 def time_function(func):
     def wrapping_fun(*args, **kwargs):
@@ -20,40 +17,6 @@ def time_function(func):
         print('Run time of %s is %4.2fs' % (func.__name__, (end - start)))
         return result
     return wrapping_fun
-
-def mkdir(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-def norm_to_range(arr, new_range):
-	return np.interp(np.array(arr), (np.amin(arr), np.amax(arr)), new_range)
-
-def signed_volume(v, f):
-    # Add up signed volume of tetrahedra for each face
-    # If triangles, then one of these vertices is the origin
-    if f.shape[1] == 3:
-        f = np.hstack([f, np.ones(len(f)).reshape(len(f), 1) * len(v)]).astype(int)
-        v = np.vstack([v, np.zeros(3).reshape(1, 3)])
-    fverts = v[f]
-    fvectors = fverts - fverts[:,3, None,:]
-    # Triple scalar product
-    volume = 1/6 * np.sum(np.sum(fvectors[:,0,:] * np.cross(fvectors[:,1,:], fvectors[:,2,:], axis=1), axis=1))
-    return volume
-
-# Returns new faces array with orientation fixed
-def fix_orientation(vertices, faces):
-    from igl import bfs_orient
-    new_faces, c = bfs_orient(faces)
-    new_faces = new_faces.astype(int)
-
-    # Edge case: only one face
-    if len(new_faces.shape) == 1:
-        new_faces = new_faces.reshape(1,3)
-
-    volume = signed_volume(vertices, new_faces)
-    if volume < 0:
-        new_faces = np.fliplr(new_faces)
-    return new_faces
 
 def clear_directory(path):
     for filename in os.listdir(path):
