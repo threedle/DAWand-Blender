@@ -1,9 +1,7 @@
-# DA Wand for Blender v0.3
+# DA Wand for Blender v0.4
 
 ### What's New
- - Added new 'overwrite' and 'extension' modes
- - Added Slim / Blender unwrap UV settings
- - Install should be better BUT reload isn't working anymore, so you must restart Blender if you want to change any code
+ - Added new options for unwrapping uvs
 
 ### Installation
 Two ways to install
