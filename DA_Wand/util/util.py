@@ -181,39 +181,125 @@ def compute_hks(evals, evecs, scales):
     else:
         return out
 
-# Run graphcuts
-def graphcuts(preds, mesh, pairwise=None, unary=-15, anchors=None):
-    from pygco import cut_from_graph
+# Better graphcuts
+def graphcuts(preds, mesh, boundaryval=0.2):
+    ### Python graphcuts algorithm implementation ####
+    import numpy as np
+    import igraph as ig
+
+    preds = np.round(preds)
+
+    # Create graph (edges are between faces)
     face_adj = np.array([[edge.halfedge.face.index, edge.halfedge.twin.face.index] for key, edge in sorted(mesh.topology.edges.items())])
 
+    # Source face is centroid of the selected faces OR the anchor vertex
+    predpos = np.mean(mesh.vertices[mesh.faces[preds == 1]], axis=1)
+    pred_center = np.mean(predpos, axis=0, keepdims=True)
+    source = np.arange(len(mesh.faces))[preds == 1][np.argmin(np.linalg.norm(predpos - pred_center, axis=1))]
+
+    # Sink vertex is centroid of the unselected vertices
+    nopredpos = np.mean(mesh.vertices[mesh.faces[preds == 0]], axis=1)
+    nopred_center = np.mean(nopredpos, axis=0, keepdims=True)
+    sink = np.arange(len(mesh.faces))[preds == 0][np.argmin(np.linalg.norm(nopredpos - nopred_center, axis=1))]
+
+    # Define edge capacity based on dihedrals
     if not hasattr(mesh, "dihedrals"):
         computeDihedrals(mesh)
 
+    # Convert preds into edge capacity scalars
+    epreds = (preds[face_adj][:,0] == preds[face_adj][:,1]).astype(float)
+
+    # HEURISTIC: Set preds boundary to value smaller
+    epreds[epreds == 0] = boundaryval
+
+    # This maps flat adjacent faces to 0
     dihedrals = np.clip(np.pi - mesh.dihedrals, 0, np.pi).squeeze()
 
-    # TODO: maybe send all dihedrals past 90* to smoothness cost 0
-    # Maps dihedrals from 0 => infty
-    smoothness = -np.log(dihedrals/np.pi + 1e-15)
-    edges = np.ceil(np.concatenate([face_adj, smoothness[:,None]], axis=1)).astype(np.int32)
+    #### Construct graph
+    g = ig.Graph(n = len(np.unique(face_adj)), edges=face_adj)
 
-    if pairwise is None:
-        pairwise = 0 * np.eye(2, dtype=np.int32)
-        pairwise[0,1] = 10
-        pairwise[1,0] = 10
+    ### Add additional edges from source face to all within the initial pred
+    addpreds = [[source, i] for i in np.arange(len(mesh.faces))[preds == 1] if i != source]
+    g.add_edges(addpreds)
 
-    # TODO: scale unary costs by geodesic distance with gaussian dropoff
-    # Selection nearby: super high weight, rapidly drop down as moves further away
-    # Non-selection: fixed cost regardless of distance
-    unaries = np.ones((len(preds), 2))
-    unaries[:, 1] = (preds - 0.5) * unary
-    unaries[:, 0] = -unaries[:, 1]
-    # Assign large value to anchor
-    if anchors is not None:
-        unaries[anchors, 1] = -10000
-        unaries[anchors,0] = 10000
-    unaries = unaries.astype(np.int32)
-    cut_graph = cut_from_graph(edges, unaries, pairwise, n_iter=-1, algorithm='swap')
-    return cut_graph
+    newdihed = mesh.facenormals[np.array(addpreds)]
+    newdihed = (newdihed[:, 0] * newdihed[:, 1]).sum(axis=1).clip(-1, 1)
+    newdihed = np.arccos(newdihed)
+    dihedrals = np.concatenate([dihedrals, newdihed])
+
+    epreds = np.concatenate([epreds, np.ones(len(addpreds))])
+
+    # Sink
+    addpreds = [[sink, i] for i in np.arange(len(mesh.faces))[preds == 0] if i != sink]
+    g.add_edges(addpreds)
+    newdihed = mesh.facenormals[np.array(addpreds)]
+    newdihed = (newdihed[:, 0] * newdihed[:, 1]).sum(axis=1).clip(-1, 1)
+    newdihed = np.arccos(newdihed)
+    dihedrals = np.concatenate([dihedrals, newdihed])
+
+    epreds = np.concatenate([epreds, np.ones(len(addpreds))])
+
+    # Dihedrals close to 0 go to infty capacity
+    capacity = -np.log(dihedrals/np.pi + 1e-15) * epreds
+
+    gc = g.mincut(source, sink, capacity=list(capacity))
+    sourcefs, sinkfs = gc.partition
+
+    # Visualize
+    # import polyscope as ps
+    # ps.init()
+    # ps_mesh = ps.register_surface_mesh("squirrel", mesh.vertices, mesh.faces, edge_width=1)
+    # ps_mesh.add_scalar_quantity("og preds", preds, defined_on='faces', enabled=True, cmap="viridis")
+
+    # gcpreds = np.zeros_like(preds)
+    # gcpreds[sourcefs] = 1
+    # ps_mesh.add_scalar_quantity("gc preds", gcpreds, defined_on='faces', enabled=True, cmap="viridis")
+
+    # # Add source and sink locations
+    # ps_source = ps.register_point_cloud("source", np.mean(mesh.vertices[mesh.faces[source]], axis=0, keepdims=True), enabled=True, radius=.01)
+    # ps_source = ps.register_point_cloud("sink", np.mean(mesh.vertices[mesh.faces[sink]], axis=0, keepdims=True), enabled=True, radius=.01)
+
+    # ps.show()
+
+    # Return new preds
+    newpreds = np.zeros_like(preds)
+    newpreds[sourcefs] = 1
+
+    return newpreds
+
+# OLD AND SHITTY
+# def graphcuts(preds, mesh, pairwise=None, unary=-15, anchors=None):
+#     from pygco import cut_from_graph
+#     face_adj = np.array([[edge.halfedge.face.index, edge.halfedge.twin.face.index] for key, edge in sorted(mesh.topology.edges.items())])
+
+#     if not hasattr(mesh, "dihedrals"):
+#         computeDihedrals(mesh)
+
+#     dihedrals = np.clip(np.pi - mesh.dihedrals, 0, np.pi).squeeze()
+
+#     # TODO: maybe send all dihedrals past 90* to smoothness cost 0
+#     # Maps dihedrals from 0 => infty
+#     smoothness = -np.log(dihedrals/np.pi + 1e-15)
+#     edges = np.ceil(np.concatenate([face_adj, smoothness[:,None]], axis=1)).astype(np.int32)
+
+#     if pairwise is None:
+#         pairwise = 0 * np.eye(2, dtype=np.int32)
+#         pairwise[0,1] = 10
+#         pairwise[1,0] = 10
+
+#     # TODO: scale unary costs by geodesic distance with gaussian dropoff
+#     # Selection nearby: super high weight, rapidly drop down as moves further away
+#     # Non-selection: fixed cost regardless of distance
+#     unaries = np.ones((len(preds), 2))
+#     unaries[:, 1] = (preds - 0.5) * unary
+#     unaries[:, 0] = -unaries[:, 1]
+#     # Assign large value to anchor
+#     if anchors is not None:
+#         unaries[anchors, 1] = -10000
+#         unaries[anchors,0] = 10000
+#     unaries = unaries.astype(np.int32)
+#     cut_graph = cut_from_graph(edges, unaries, pairwise, n_iter=-1, algorithm='swap')
+#     return cut_graph
 
 # NOTE: This assumes default view direction of (0, 0, -r)
 def get_camera_from_view(elev, azim, r=2.0):
