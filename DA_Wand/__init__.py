@@ -25,6 +25,7 @@ dependencies = (Dependency(module="dill", package=None, name=None),
                 Dependency(module="robust-laplacian", package=None, name=None),
                 Dependency(module="potpourri3d", package=None, name=None),
                 Dependency(module="pygco", package=None, name=None),
+                Dependency(module="igraph", package=None, name=None),
                 Dependency(module="torch", package=None, name=None),
                 Dependency(module="libigl", package=None, name=None),
                 )
@@ -142,6 +143,7 @@ def register():
         import potpourri3d
         import matplotlib
         import pygco
+        import igraph
         import torch
         import igl
     except:
@@ -155,10 +157,10 @@ def register():
             bpy.utils.register_class(cls)
     except ValueError:
         pass
-    
+
     if dependencies_installed:
         from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
-        
+
         bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)
         bpy.utils.register_class(DA_Menu)
@@ -167,7 +169,7 @@ def register():
         return
 
 def unregister():
-    
+
     from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
 
     for cls in preference_classes:
