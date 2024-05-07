@@ -10,13 +10,12 @@ from DA_Wand.models import create_model
 from DA_Wand.models.layers.meshing import Mesh
 from DA_Wand.models.layers.meshing.io import PolygonSoup
 from DA_Wand.models.networks import floodfill_scalar_v2
-from DA_Wand.util.util import graphcuts
+from DA_Wand.util.util import graphcuts, clear_directory
 import numpy as np
 import os
 import torch
 from pathlib import Path
 from enum import Enum
-
 
 
 #Demo code
@@ -89,6 +88,8 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
     opt.interactive = True
 
     opt.overwritecache = False
+    opt.cachefolder = "__dawandcache__"
+    opt.anchorcachefolder = "__dawandcache__"
     # opt.overwriteopcache = True
     opt.overwriteanchorcache = True
     opt.overwritemeanstd = True
@@ -173,7 +174,7 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
             predkey = "model"
             for post in postprocess:
                 if post == "gc":
-                    preds = graphcuts(preds, mesh, anchors=current_index_list)
+                    preds = graphcuts(preds, mesh)
                     predkey += "_gc"
                     pred_cache[predkey] = preds
                 if post == "ff":
@@ -294,6 +295,9 @@ class OnClick(bpy.types.Operator):
             target_file = os.path.join(dir_path, 'tempobj.obj')
             bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
                                     use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+
+            # Also need to wipe the cache
+            clear_directory(os.path.join(dir_path, '__dawandcache__'))
 
 
         #after export we have to redeclare the bmesh
