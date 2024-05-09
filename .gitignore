@@ -9,7 +9,6 @@
 *scratch*
 lightning_logs
 *results/
-*data/
 *.polyscope*
 *.png
 *.ini
