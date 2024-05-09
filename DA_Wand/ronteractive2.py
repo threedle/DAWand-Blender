@@ -2,7 +2,7 @@ import bpy
 import bmesh
 from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty, StringProperty, EnumProperty
 
-from . data.intseg_data import IntSegData
+from . data.dawand_data import DAWandData
 import dill as pickle
 import sys
 sys.path.append('../DA_Wand')
@@ -19,7 +19,6 @@ import torch
 import random
 from pathlib import Path
 from enum import Enum
-
 
 
 #Demo code
@@ -303,7 +302,8 @@ class OnClick(bpy.types.Operator):
                                     use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
 
             # Also need to wipe the cache
-            clear_directory(os.path.join(dir_path, '__dawandcache__'))
+            if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
+                clear_directory(os.path.join(dir_path, '__dawandcache__'))
 
         #redeclare the bmesh
         bpy.ops.object.mode_set(mode='EDIT')
