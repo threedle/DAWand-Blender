@@ -24,7 +24,7 @@ dependencies = (Dependency(module="dill", package=None, name=None),
                 Dependency(module="scikit-learn", package=None, name=None),
                 Dependency(module="robust-laplacian", package=None, name=None),
                 Dependency(module="potpourri3d", package=None, name=None),
-                Dependency(module="pygco", package=None, name=None),
+                #Dependency(module="pygco", package=None, name=None),
                 Dependency(module="igraph", package=None, name=None),
                 Dependency(module="torch", package=None, name=None),
                 Dependency(module="libigl", package=None, name=None),
@@ -142,7 +142,7 @@ def register():
         import robust_laplacian
         import potpourri3d
         import matplotlib
-        import pygco
+        #import pygco
         import igraph
         import torch
         import igl
@@ -159,18 +159,19 @@ def register():
         pass
 
     if dependencies_installed:
-        from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
+        from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, register_properties, unregister_properties
 
         bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)
         bpy.utils.register_class(DA_Menu)
+        bpy.utils.register_class(Clear_Anchors)
         register_properties()
     else:
         return
 
 def unregister():
 
-    from .ronteractive2 import OnClick, DA_Icon, DA_Menu, register_properties, unregister_properties
+    from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, register_properties, unregister_properties
 
     for cls in preference_classes:
         bpy.utils.unregister_class(cls)
@@ -178,6 +179,7 @@ def unregister():
     bpy.utils.unregister_class(OnClick)
     bpy.utils.unregister_tool(DA_Icon)
     bpy.utils.unregister_class(DA_Menu)
+    bpy.utils.unregister_class(Clear_Anchors)
     unregister_properties()
 
 

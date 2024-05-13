@@ -245,7 +245,6 @@ class OnClick(bpy.types.Operator):
         gc = wm.graphcuts
 
         #some set up for the modes
-        mode = wm.mode_enum
         prevselected = []
         uvmode = wm.uv_mode
         newmap = wm.newmap
@@ -257,11 +256,10 @@ class OnClick(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-        #if in extension mode, we save what is currently selected
-        if mode == "EX":
-            for f in bm.faces:
-                if f.select:
-                    prevselected.append(f.index)
+        #save what is currently selected
+        for f in bm.faces:
+            if f.select:
+                prevselected.append(f.index)
 
         #MAIN SELECTION LOGIC
 
@@ -354,7 +352,7 @@ class OnClick(bpy.types.Operator):
                 mesh.uv_layers[f"DAWandUV_{len(obj.data.uv_layers)-1}"].active_render = True
 
             #select the prevfaces first if extending and not freezing
-            if mode == "EX" and not freeze:
+            if not freeze:
                 for face in prevselected:
                     bm.faces[face].select = True
 
@@ -382,7 +380,7 @@ class OnClick(bpy.types.Operator):
                         loop[uv_layer].uv = slimuv[subv]
 
             #select the prevfaces last if extended but freezing the old uvs
-            if mode == "EX" and  freeze:
+            if freeze:
                 for face in prevselected:
                     bm.faces[face].select = True
 
@@ -392,9 +390,6 @@ class OnClick(bpy.types.Operator):
                 bpy.ops.uv.pack_islands(margin=0.001)
                 bpy.ops.uv.average_islands_scale()
                 bpy.ops.uv.select_all(action='DESELECT')
-
-
-
 
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -415,6 +410,25 @@ class OnClick(bpy.types.Operator):
         self.mark_seams_by_index(context)
         return {'FINISHED'}
 
+
+class Clear_Anchors(bpy.types.Operator):
+    bl_idname = "clear.anchors"
+    bl_label = "clearanchors"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+        #check if in edit mode
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+        
+        bpy.ops.mesh.select_all(action='DESELECT')
+        
+
+        return {'FINISHED'}
 
 class DA_Icon(bpy.types.WorkSpaceTool):
     #set up the ui
@@ -451,11 +465,6 @@ class DA_Menu(bpy.types.Panel):
         wm = context.window_manager
 
         row = layout.row()
-        row.label(text="Click Mode")
-
-        layout.prop(wm, "mode_enum")
-
-        row = layout.row()
         row.label(text="Unwrap options")
 
         layout.prop(wm, "uv_mode")
@@ -465,6 +474,9 @@ class DA_Menu(bpy.types.Panel):
 
         row = layout.row()
         row.prop(wm, 'freeze')
+
+        row = layout.row()
+        row.operator(Clear_Anchors.bl_idname, text="Clear Anchors and UVs")
 
         row = layout.row()
         row.label(text="Segmentation Options")
@@ -477,20 +489,11 @@ class DA_Menu(bpy.types.Panel):
 
 
 
-
 def register_properties():
     bpy.types.WindowManager.floodfill = BoolProperty(name='Flood Fill', default=True,
                                                     description='Fills gaps, leave on for best results')
     bpy.types.WindowManager.graphcuts = BoolProperty(name='Graph Cuts', default=True,
-                                                     description='I actually dont know what this does')
-    bpy.types.WindowManager.mode_enum = EnumProperty(
-        name = "",
-        description = "select an option",
-        items = [
-            ('OV', 'Overwrite', 'Successive clicks will overwrite your current selection'),
-            ('EX', 'Extension', 'Successive clicks extend the current selection')
-        ]
-    )
+                                                     description='Clamps the boundary to sharp edges, leave on for best results')
     bpy.types.WindowManager.uv_mode = EnumProperty(
         name="",
         description = "select an option",
@@ -511,7 +514,6 @@ def register_properties():
 def unregister_properties():
     del bpy.types.WindowManager.floodfill
     del bpy.types.WindowManager.graphcuts
-    del bpy.types.WindowManager.mode_enum
     del bpy.types.WindowManager.uv_mode
     del bpy.types.WindowManager.newmap
     del bpy.types.WindowManager.freeze

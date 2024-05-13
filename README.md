@@ -1,7 +1,10 @@
-# DA Wand for Blender v0.4
+# DA Wand for Blender v0.5
 
 ### What's New
- - Added new options for unwrapping uvs
+ - unwrapping isn't working all the time now
+ - pygco dependency gone
+ - replaced 'overwrite' and 'extension' modes with a clear anchors buttons
+    - it doesn't clear the uvs though
 
 ### Installation
 Two ways to install
