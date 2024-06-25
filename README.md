@@ -11,6 +11,7 @@
  - test install (though I think it's better now that there's no pygco)
  - clean up code and menus (I don't like DA_Wand, probably should rename)
  - maybe test on Blender 4.0
+ - oh also maybe see if circular import is still happening or not
 
 ### Installation
 Two ways to install
