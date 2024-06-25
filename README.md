@@ -1,10 +1,16 @@
-# DA Wand for Blender v0.5
+# DA Wand for Blender v0.6
 
 ### What's New
- - unwrapping isn't working all the time now
- - pygco dependency gone
- - replaced 'overwrite' and 'extension' modes with a clear anchors buttons
-    - it doesn't clear the uvs though
+ - rearranged everything, now a dedicated 'unwrap button' with multiple modes
+ - clear selection, clear uvs, and clear both buttons added (and they work)
+ - Preserve UVs and Generate new map both working, will now not overwrite your UVs
+ - TODO
+ - Slight bug after clearing UVs where the UV map will be full of nans and the unwrap will fail without throwing an error.
+ - Improve tooltips (get rid of undocumented operators)
+ - clean up errors on launch (PT error and deselect all)
+ - test install (though I think it's better now that there's no pygco)
+ - clean up code and menus (I don't like DA_Wand, probably should rename)
+ - maybe test on Blender 4.0
 
 ### Installation
 Two ways to install
@@ -27,8 +33,6 @@ After either of these has been done, go back to Edit->Preferences->Add-ons and s
 Click the check next to DA_Wand, if you get a circular import error, just click again.
 
 At this point, a box that says "Install Dependencies" should appear. Click this to install DAWand's dependencies to Blender's Python - this may take a second, but the box should grey out
-
-**NOTE:** If there is an error raised with the pygco install, then make sure you have python installed on your base system (e.g. brew install python), and that the system "Python.h" file can be found through setting the C_INCLUDE_PATH environment variable (**the Python version must match the Blender python version**). See [this link.](https://stackoverflow.com/questions/35778495/fatal-error-python-h-file-not-found-while-installing-opencv)
 
 
 ### Usage

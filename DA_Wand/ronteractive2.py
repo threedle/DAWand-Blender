@@ -219,6 +219,10 @@ def uv_from_vert_average(uv_layer, v):
     else:
         return None
 
+
+
+dir_path = ""
+
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
@@ -246,9 +250,8 @@ class OnClick(bpy.types.Operator):
 
         #some set up for the modes
         prevselected = []
-        uvmode = wm.uv_mode
-        newmap = wm.newmap
-        freeze = wm.freeze
+        selected_faces = []
+        selected_face = None
 
         #check if in edit mode
         if obj.mode != 'EDIT':
@@ -280,12 +283,6 @@ class OnClick(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-        mesh_changed = False
-        if vertex_set is None:
-            mesh_changed = True
-        else:
-            mesh_changed = not np.allclose(vertex_set, bm.verts)
-
         # Only export if the current mesh vertex set has changed
         mesh_changed = False
         if vertex_set is None:
@@ -293,6 +290,7 @@ class OnClick(bpy.types.Operator):
         else:
             mesh_changed = not np.allclose(vertex_set, bm.verts)
 
+        global dir_path
         if mesh_changed:
             dir_path = os.path.dirname(os.path.realpath(__file__))
             target_file = os.path.join(dir_path, 'tempobj.obj')
@@ -309,24 +307,6 @@ class OnClick(bpy.types.Operator):
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
 
-        # Get faces with assigned UVs within valid texel range to ignore from predicted selection
-        uv_layer = bm.loops.layers.uv.active
-        current_uvs = None
-        if uv_layer is not None:
-            current_uvs = []
-            for face in bm.faces:
-                faceuv = []
-                for loop in face.loops:
-                    uv = loop[uv_layer].uv
-                    faceuv.append(uv)
-                current_uvs.append(faceuv)
-            current_uvs = np.array(current_uvs)
-
-        if current_uvs is None:
-            done_faces = []
-        else:
-            # Look for all faces with any valid UVs (within 0-1 range)
-            done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
 
         mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
         selected_faces = np.where(mapping == 1)[0]
@@ -338,58 +318,16 @@ class OnClick(bpy.types.Operator):
             if mapping[i] == 1:
                 bm.faces[i].select = True
 
+        #and select everything that was selected before
+        #we are always extending the CLICK
+        for face in prevselected:
+                bm.faces[face].select = True
+
+        #at this point, all of the faces should be selected
+        #but the user can still select more if they want
 
         #then bmesh update
         bmesh.update_edit_mesh(mesh)
-
-        #if we're unwrapping
-        if uvmode != "NONE":
-            # Define a uv layer if one doesn't exist, or if generating a new map
-            if uv_layer is None or newmap:
-                bm.loops.layers.uv.new(f"DAWandUV_{len(obj.data.uv_layers)}")
-                uv_layer = bm.loops.layers.uv.get(f"DAWandUV_{len(obj.data.uv_layers)-1}")
-                mesh.uv_layers.active = obj.data.uv_layers[f"DAWandUV_{len(obj.data.uv_layers)-1}"]
-                mesh.uv_layers[f"DAWandUV_{len(obj.data.uv_layers)-1}"].active_render = True
-
-            #select the prevfaces first if extending and not freezing
-            if not freeze:
-                for face in prevselected:
-                    bm.faces[face].select = True
-
-            if uvmode == "BLENDERUNWRAP":
-                bpy.ops.uv.unwrap()
-            elif uvmode == "SLIM":
-                from DA_Wand.util.util import SLIM
-
-                soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
-                mesh = Mesh(soup.vertices, soup.indices)
-                subvs, subfs = mesh.export_submesh(selected_faces)
-
-                v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
-                v_to_subv[mesh.faces[selected_faces].flatten()] = subfs.flatten()
-
-                slimuv, slimenergy = SLIM(subvs, subfs)
-
-                uv_layer = bm.loops.layers.uv.active
-
-                for fi in selected_faces:
-                    face = bm.faces[fi]
-                    for loop in face.loops:
-                        v = loop.vert
-                        subv = v_to_subv[v.index]
-                        loop[uv_layer].uv = slimuv[subv]
-
-            #select the prevfaces last if extended but freezing the old uvs
-            if freeze:
-                for face in prevselected:
-                    bm.faces[face].select = True
-
-                #this should separate the unwraps so they don't overlap
-                #though may cause a problem
-                bpy.ops.uv.select_all(action='SELECT')
-                bpy.ops.uv.pack_islands(margin=0.001)
-                bpy.ops.uv.average_islands_scale()
-                bpy.ops.uv.select_all(action='DESELECT')
 
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -425,10 +363,169 @@ class Clear_Anchors(bpy.types.Operator):
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
         
-        bpy.ops.mesh.select_all(action='DESELECT')
+        #hopefully remove the uvs
+        uv_layer = bm.loops.layers.uv.active
+        if uv_layer is not None:
+            for i in range(len(bm.faces)):
+                for j in range(len(bm.faces[i].loops)):
+                    bm.faces[i].loops[j][uv_layer].uv = (0, 0)
+       
+        bmesh.update_edit_mesh(mesh)
         
+        #deselect
+        bpy.ops.mesh.select_all(action='DESELECT')
 
         return {'FINISHED'}
+    
+class Clear_Sel(bpy.types.Operator):
+    bl_idname = "clear.sel"
+    bl_label = "clearsel"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+
+        #check if in edit mode
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+        
+        #deselect
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        return {'FINISHED'}
+    
+class Clear_UV(bpy.types.Operator):
+    bl_idname = "clear.uv"
+    bl_label = "clearuv"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+        #check if in edit mode
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+        
+        uv_layer = bm.loops.layers.uv.active
+        if uv_layer is not None:
+            for i in range(len(bm.faces)):
+                for j in range(len(bm.faces[i].loops)):
+                    bm.faces[i].loops[j][uv_layer].uv = (0, 0)
+       
+        bmesh.update_edit_mesh(mesh)
+
+        return {'FINISHED'}
+    
+class Unwrap(bpy.types.Operator):
+    bl_idname = "unwrap.button"
+    bl_label = "unwrapbutton"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+        wm = context.window_manager
+
+        #variables needed for unwrapping
+        uvmode = wm.uv_mode
+        newmap = wm.newmap
+        freeze = wm.freeze
+        
+        global dir_path
+
+
+        #check if in edit mode
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+
+
+        select_for_unwrap = []
+        #this will tell us what is selected now
+        for f in bm.faces:
+            if f.select:
+                select_for_unwrap.append(f.index)
+
+        #if we don't have any faces here, then nothing is selected 
+        if not select_for_unwrap:
+            self.report({'ERROR'}, "Please select faces before unwrapping")
+            return {'CANCELLED'}
+
+         # Get faces with assigned UVs within valid texel range to ignore from predicted selection
+        uv_layer = bm.loops.layers.uv.active
+        current_uvs = None
+        if uv_layer is not None:
+            current_uvs = []
+            for face in bm.faces:
+                faceuv = []
+                for loop in face.loops:
+                    uv = loop[uv_layer].uv
+                    faceuv.append(uv)
+                current_uvs.append(faceuv)
+            current_uvs = np.array(current_uvs)
+            print(faceuv)
+            print(current_uvs)
+        if current_uvs is None:
+            done_faces = []
+        else:
+            # Look for all faces with any valid UVs (within 0-1 range)
+            done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
+        
+
+        #if we want to preserve the old uvs
+        if freeze:
+            #remove the done uvs from the selection list
+            select_for_unwrap = [face for face in select_for_unwrap if face not in done_faces]
+            #and select only those
+            bpy.ops.mesh.select_all(action='DESELECT')
+            for face in select_for_unwrap:
+                bm.faces[face].select = True
+            
+        #if we don't have any faces here, we already have uvs  
+        if not select_for_unwrap:
+            self.report({'ERROR'}, "All selected faces already have UVs, either select new faces, or turn off Preserve UVs")
+            return {'CANCELLED'}
+
+
+        # Define a uv layer if one doesn't exist, or if generating a new map
+        if uv_layer is None or newmap:
+            bm.loops.layers.uv.new(f"DAWandUV_{len(obj.data.uv_layers)}")
+            uv_layer = bm.loops.layers.uv.get(f"DAWandUV_{len(obj.data.uv_layers)-1}")
+            mesh.uv_layers.active = obj.data.uv_layers[f"DAWandUV_{len(obj.data.uv_layers)-1}"]
+            mesh.uv_layers[f"DAWandUV_{len(obj.data.uv_layers)-1}"].active_render = True
+
+
+
+        if uvmode == "BLENDERUNWRAP":
+            #blender unwrap just unwraps what is selected    
+            bpy.ops.uv.unwrap()
+        elif uvmode == "SLIM":
+            from DA_Wand.util.util import SLIM
+
+            soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
+            mesh = Mesh(soup.vertices, soup.indices)
+            subvs, subfs = mesh.export_submesh(select_for_unwrap)
+
+            v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
+            v_to_subv[mesh.faces[select_for_unwrap].flatten()] = subfs.flatten()
+
+            slimuv, slimenergy = SLIM(subvs, subfs)
+
+            uv_layer = bm.loops.layers.uv.active
+
+            for fi in select_for_unwrap:
+                face = bm.faces[fi]
+                for loop in face.loops:
+                    v = loop.vert
+                    subv = v_to_subv[v.index]
+                    loop[uv_layer].uv = slimuv[subv]
+
+        return {'FINISHED'}
+
+
 
 class DA_Icon(bpy.types.WorkSpaceTool):
     #set up the ui
@@ -465,6 +562,22 @@ class DA_Menu(bpy.types.Panel):
         wm = context.window_manager
 
         row = layout.row()
+        row.label(text="Segmentation Options")
+
+        row = layout.row()
+        row.prop(wm, 'floodfill')
+
+        row = layout.row()
+        row.prop(wm, 'graphcuts')
+
+        row = layout.row()
+        row.operator(Clear_Sel.bl_idname, text="Clear Selection")
+        row.operator(Clear_UV.bl_idname, text="Clear UVs")
+
+        row = layout.row()
+        row.operator(Clear_Anchors.bl_idname, text="Clear Selection and UVs")
+
+        row = layout.row()
         row.label(text="Unwrap options")
 
         layout.prop(wm, "uv_mode")
@@ -476,16 +589,7 @@ class DA_Menu(bpy.types.Panel):
         row.prop(wm, 'freeze')
 
         row = layout.row()
-        row.operator(Clear_Anchors.bl_idname, text="Clear Anchors and UVs")
-
-        row = layout.row()
-        row.label(text="Segmentation Options")
-
-        row = layout.row()
-        row.prop(wm, 'floodfill')
-
-        row = layout.row()
-        row.prop(wm, 'graphcuts')
+        row.operator(Unwrap.bl_idname, text="Unwrap")
 
 
 
@@ -500,14 +604,13 @@ def register_properties():
         items = [
             ('BLENDERUNWRAP', 'Blender Unwrap', "Uses Blender's built-in unwrap"),
             ('SLIM', 'Slim', 'Uses SLIM Unwrap'),
-            ('NONE', "Don't Unwrap", "Doesn't unwrap on click")
         ]
     )
 
     bpy.types.WindowManager.newmap = BoolProperty(name='Generate New UVMap', default=False,
-                                            description='Generates a new UVmap with each click')
+                                            description='Generates a new UVmap on unwrap')
 
-    bpy.types.WindowManager.freeze = BoolProperty(name='Preserve previous unwrap', default=False,
+    bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
                                              description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
 
 

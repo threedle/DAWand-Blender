@@ -159,19 +159,22 @@ def register():
         pass
 
     if dependencies_installed:
-        from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, register_properties, unregister_properties
+        from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
 
         bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)
         bpy.utils.register_class(DA_Menu)
         bpy.utils.register_class(Clear_Anchors)
+        bpy.utils.register_class(Unwrap)
+        bpy.utils.register_class(Clear_Sel)
+        bpy.utils.register_class(Clear_UV)
         register_properties()
     else:
         return
 
 def unregister():
 
-    from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, register_properties, unregister_properties
+    from .ronteractive2 import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
 
     for cls in preference_classes:
         bpy.utils.unregister_class(cls)
@@ -180,6 +183,9 @@ def unregister():
     bpy.utils.unregister_tool(DA_Icon)
     bpy.utils.unregister_class(DA_Menu)
     bpy.utils.unregister_class(Clear_Anchors)
+    bpy.utils.unregister_class(Unwrap)
+    bpy.utils.unregister_class(Clear_Sel)
+    bpy.utils.unregister_class(Clear_UV)
     unregister_properties()
 
 
