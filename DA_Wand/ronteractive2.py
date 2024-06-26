@@ -466,8 +466,6 @@ class Unwrap(bpy.types.Operator):
                     faceuv.append(uv)
                 current_uvs.append(faceuv)
             current_uvs = np.array(current_uvs)
-            print(faceuv)
-            print(current_uvs)
         if current_uvs is None:
             done_faces = []
         else:
@@ -506,11 +504,11 @@ class Unwrap(bpy.types.Operator):
             from DA_Wand.util.util import SLIM
 
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
-            mesh = Mesh(soup.vertices, soup.indices)
-            subvs, subfs = mesh.export_submesh(select_for_unwrap)
+            polymesh = Mesh(soup.vertices, soup.indices)
+            subvs, subfs = polymesh.export_submesh(select_for_unwrap)
 
-            v_to_subv = np.zeros(len(mesh.vertices), dtype=int)
-            v_to_subv[mesh.faces[select_for_unwrap].flatten()] = subfs.flatten()
+            v_to_subv = np.zeros(len(polymesh.vertices), dtype=int)
+            v_to_subv[polymesh.faces[select_for_unwrap].flatten()] = subfs.flatten()
 
             slimuv, slimenergy = SLIM(subvs, subfs)
 
@@ -522,6 +520,8 @@ class Unwrap(bpy.types.Operator):
                     v = loop.vert
                     subv = v_to_subv[v.index]
                     loop[uv_layer].uv = slimuv[subv]
+
+        bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
 

@@ -12,7 +12,6 @@
  - clean up code and menus (I don't like DA_Wand, probably should rename)
  - maybe test on Blender 4.0
  - oh also maybe see if circular import is still happening or not
- - SLIM NOT WORKING??!?!?
 
 ### Installation
 Two ways to install
