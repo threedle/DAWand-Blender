@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "DA_Wand",
+    "name": "DA Wand",
     "blender": (3, 6, 2),
     "category": "Object",
 }

@@ -352,6 +352,7 @@ class OnClick(bpy.types.Operator):
 class Clear_Anchors(bpy.types.Operator):
     bl_idname = "clear.anchors"
     bl_label = "clearanchors"
+    bl_description = "Clears all face UVs and selection"
 
     def execute(self, context):
         obj = context.object
@@ -380,6 +381,7 @@ class Clear_Anchors(bpy.types.Operator):
 class Clear_Sel(bpy.types.Operator):
     bl_idname = "clear.sel"
     bl_label = "clearsel"
+    bl_description = "Deselects faces but maintains each face's UVs"
 
     def execute(self, context):
         obj = context.object
@@ -398,6 +400,7 @@ class Clear_Sel(bpy.types.Operator):
 class Clear_UV(bpy.types.Operator):
     bl_idname = "clear.uv"
     bl_label = "clearuv"
+    bl_description = "Erases all face UVs but keeps your current selection"
 
     def execute(self, context):
         obj = context.object
@@ -422,6 +425,7 @@ class Clear_UV(bpy.types.Operator):
 class Unwrap(bpy.types.Operator):
     bl_idname = "unwrap.button"
     bl_label = "unwrapbutton"
+    bl_description = "Unwraps the mesh using the above settings"
 
     def execute(self, context):
         obj = context.object
@@ -545,13 +549,13 @@ class DA_Icon(bpy.types.WorkSpaceTool):
     bl_icon = icon
     #sets the functionality
     bl_keymap = (
-       ('object.modal_operator', {'type': 'LEFTMOUSE', 'value': 'CLICK'}, {'properties': [('deselect_all', True)]}),
+       ('object.modal_operator', {'type': 'LEFTMOUSE', 'value': 'CLICK'}, {'properties': []}),
        )
 
 class DA_Menu(bpy.types.Panel):
     #other UI - hopefully will open up on click
     bl_label = "DAWand Options"
-    bl_idname = "DA_Wand_layout"
+    bl_idname = "DA_PT_Menu"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'DA Wand'
