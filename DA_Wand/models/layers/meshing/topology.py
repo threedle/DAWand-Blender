@@ -225,7 +225,7 @@ class Topology():
         n_halfedges = halfedge_data[:, 0].max() + 1
         n_verts = halfedge_data[:, 1].max() + 1
         n_edges = halfedge_data[:, 2].max() + 1
-        on_bound = halfedge_data[:, -1].astype(np.bool)
+        on_bound = halfedge_data[:, -1].astype(bool)
         n_faces = 0 if on_bound.all() else halfedge_data[~on_bound][:, 3].max() + 1
         n_bounds = 0 if not on_bound.any() else halfedge_data[on_bound][:, 3].max() + 1
 

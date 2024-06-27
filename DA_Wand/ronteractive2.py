@@ -294,8 +294,11 @@ class OnClick(bpy.types.Operator):
         if mesh_changed:
             dir_path = os.path.dirname(os.path.realpath(__file__))
             target_file = os.path.join(dir_path, 'tempobj.obj')
-            bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
-                                    use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+            # bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
+            #                         use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+            bpy.ops.wm.obj_export(filepath=target_file, export_uv=False, 
+                                  export_normals=False, export_materials=False,
+                                  export_triangulated_mesh=True, export_selected_objects=True)
 
             # Also need to wipe the cache
             if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
