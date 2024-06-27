@@ -4,7 +4,7 @@
  - rearranged everything, now a dedicated 'unwrap button' with multiple modes
  - clear selection, clear uvs, and clear both buttons added (and they work)
  - Preserve UVs and Generate new map both working, will now not overwrite your UVs
- - WORKS ON BLENDER 4.1
+ - WORKS ON BLENDER 4.1 (should still work on 3.6)
 ### TODO
  - Slight bug after clearing UVs where the UV map will be full of nans and the unwrap will fail without throwing an error.
  - test install (though I think it's better now that there's no pygco)
