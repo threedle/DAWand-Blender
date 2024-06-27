@@ -505,8 +505,11 @@ class Unwrap(bpy.types.Operator):
 
 
         if uvmode == "BLENDERUNWRAP":
-            #blender unwrap just unwraps what is selected    
+            #Attempt to unwrap
             bpy.ops.uv.unwrap()
+
+                
+            
         elif uvmode == "SLIM":
             from DA_Wand.util.util import SLIM
 
@@ -517,7 +520,11 @@ class Unwrap(bpy.types.Operator):
             v_to_subv = np.zeros(len(polymesh.vertices), dtype=int)
             v_to_subv[polymesh.faces[select_for_unwrap].flatten()] = subfs.flatten()
 
-            slimuv, slimenergy = SLIM(subvs, subfs)
+            try:
+                slimuv, slimenergy = SLIM(subvs, subfs)
+            except:
+                self.report({'ERROR'}, "SLIM unwrap failed, likely because it was unable to solve islands")
+                return {'CANCELLED'}
 
             uv_layer = bm.loops.layers.uv.active
 

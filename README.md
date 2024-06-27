@@ -6,7 +6,7 @@
  - Preserve UVs and Generate new map both working, will now not overwrite your UVs
  - WORKS ON BLENDER 4.1 (should still work on 3.6)
 ### TODO
- - Slight bug after clearing UVs where the UV map will be full of nans and the unwrap will fail without throwing an error.
+ - Warning checking on Blender unwrap - it works on SLIM unwrap, but proved incredibly hard to tell when the blender unwrap fails (it returns FINISHED even when it fails)
  - test install (though I think it's better now that there's no pygco)
  - circular import? fixed?? I don't know
 
