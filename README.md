@@ -8,7 +8,7 @@
 ### TODO
  - Slight bug after clearing UVs where the UV map will be full of nans and the unwrap will fail without throwing an error.
  - test install (though I think it's better now that there's no pygco)
- - oh also maybe see if circular import is still happening or not
+ - circular import? fixed?? I don't know
 
 ### Installation
 Two ways to install
