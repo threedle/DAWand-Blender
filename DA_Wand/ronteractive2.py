@@ -483,14 +483,18 @@ class Unwrap(bpy.types.Operator):
         #if we want to preserve the old uvs
         if freeze:
             #remove the done uvs from the selection list
-            select_for_unwrap = [face for face in select_for_unwrap if face not in done_faces]
+            select_final = [face for face in select_for_unwrap if face not in done_faces]
+            #select final will be what we unwrap, but we will remember
+            #in case we need to reselect
             #and select only those
             bpy.ops.mesh.select_all(action='DESELECT')
-            for face in select_for_unwrap:
+            for face in select_final:
                 bm.faces[face].select = True
+        else:
+            select_final = select_for_unwrap
             
         #if we don't have any faces here, we already have uvs  
-        if not select_for_unwrap:
+        if not select_final:
             self.report({'ERROR'}, "All selected faces already have UVs, either select new faces, or turn off Preserve UVs")
             return {'CANCELLED'}
 
@@ -507,18 +511,15 @@ class Unwrap(bpy.types.Operator):
         if uvmode == "BLENDERUNWRAP":
             #Attempt to unwrap
             bpy.ops.uv.unwrap()
-
-                
-            
         elif uvmode == "SLIM":
             from DA_Wand.util.util import SLIM
 
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
             polymesh = Mesh(soup.vertices, soup.indices)
-            subvs, subfs = polymesh.export_submesh(select_for_unwrap)
+            subvs, subfs = polymesh.export_submesh(select_final)
 
             v_to_subv = np.zeros(len(polymesh.vertices), dtype=int)
-            v_to_subv[polymesh.faces[select_for_unwrap].flatten()] = subfs.flatten()
+            v_to_subv[polymesh.faces[select_final].flatten()] = subfs.flatten()
 
             try:
                 slimuv, slimenergy = SLIM(subvs, subfs)
@@ -528,13 +529,17 @@ class Unwrap(bpy.types.Operator):
 
             uv_layer = bm.loops.layers.uv.active
 
-            for fi in select_for_unwrap:
+            for fi in select_final:
                 face = bm.faces[fi]
                 for loop in face.loops:
                     v = loop.vert
                     subv = v_to_subv[v.index]
                     loop[uv_layer].uv = slimuv[subv]
 
+        if freeze and not newmap:
+             for face in select_for_unwrap:
+                bm.faces[face].select = True
+        
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
