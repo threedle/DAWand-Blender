@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 sys.path.append('../DA_Wand')
-from DA_Wand.util.util import dclamp 
+from util.util import dclamp 
 
 # Parameterization with least squares solve 
 def weightedlscm(vertices, faces, face_weights=None,

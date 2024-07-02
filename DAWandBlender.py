@@ -2,26 +2,28 @@ import bpy
 import bmesh
 from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty, StringProperty, EnumProperty
 
-from . data.dawand_data import DAWandData
-import dill as pickle
 import sys
-sys.path.append('../DA_Wand')
-from DA_Wand.models.layers.meshing.analysis import computeFaceAreas, computeDihedrals
-from DA_Wand.models import create_model
-from DA_Wand.models.layers.meshing import Mesh
-from DA_Wand.models.layers.meshing.io import PolygonSoup
-from DA_Wand.models.layers.meshing.edit import VertexStarCollapse, EdgeCollapse
-from DA_Wand.models.networks import floodfill_scalar_v2
-from DA_Wand.util.util import graphcuts, clear_directory
-import numpy as np
 import os
+
+dir_path = (os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(os.path.join(dir_path, 'DA_Wand'))
+
+from data.dawand_data import DAWandData
+from models.layers.meshing.analysis import computeFaceAreas, computeDihedrals
+from models import create_model
+from models.layers.meshing import Mesh
+from models.layers.meshing.io import PolygonSoup
+from models.layers.meshing.edit import VertexStarCollapse, EdgeCollapse
+from models.networks import floodfill_scalar_v2
+from util.util import graphcuts, clear_directory
+
+import dill as pickle
+import numpy as np
 import torch
 import random
 from pathlib import Path
 from enum import Enum
 
-
-#Demo code
 def run_forward_pass(model, dataset, face_list, return_features=False):
     # TODO: Will likely need to debug this so all the preprocessing works on multiple anchors
     dataset.update_anchor(face_list)
@@ -42,7 +44,7 @@ def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
 
     #no parser hehe
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    modeldir = os.path.join(dir_path, 'checkpoints')
+    modeldir = os.path.join(dir_path, 'DA_Wand/checkpoints')
     modelname = 'dawand'
     optname = 'opt'
     normalize = 'store_true'
@@ -296,10 +298,11 @@ class OnClick(bpy.types.Operator):
             target_file = os.path.join(dir_path, 'tempobj.obj')
             # bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
             #                         use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
+            
             bpy.ops.wm.obj_export(filepath=target_file, export_uv=False, 
                                   export_normals=False, export_materials=False,
-                                  export_triangulated_mesh=True, export_selected_objects=True)
-
+                                export_selected_objects=True)
+            
             # Also need to wipe the cache
             if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
                 clear_directory(os.path.join(dir_path, '__dawandcache__'))
@@ -310,9 +313,14 @@ class OnClick(bpy.types.Operator):
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
 
-
-        mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
-        selected_faces = np.where(mapping == 1)[0]
+        try:
+            mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
+        except IndexError:
+            self.report({'ERROR'}, f"Something went wrong when exporting the mesh, ensure the object is selected before entering edit mode")
+            return {'CANCELLED'}
+        except AssertionError:
+            self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
+            return {'CANCELLED'}
 
         bm.faces.ensure_lookup_table()
 
@@ -512,7 +520,7 @@ class Unwrap(bpy.types.Operator):
             #Attempt to unwrap
             bpy.ops.uv.unwrap()
         elif uvmode == "SLIM":
-            from DA_Wand.util.util import SLIM
+            from util.util import SLIM
 
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
             polymesh = Mesh(soup.vertices, soup.indices)

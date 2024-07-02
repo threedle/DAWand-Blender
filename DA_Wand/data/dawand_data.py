@@ -1,14 +1,14 @@
 import os
-from DA_Wand.util.util import is_mesh_file, pad, compute_hks
+from util.util import is_mesh_file, pad, compute_hks
 import torch
 from . base_dataset import BaseDataset
 import numpy as np
-from DA_Wand.models.layers.meshing import Mesh
-from DA_Wand.models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles, computeVertexNormals
-from DA_Wand.models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals, computeHKS
-from DA_Wand.models.layers.meshing.io import PolygonSoup
+from models.layers.meshing import Mesh
+from models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles, computeVertexNormals
+from models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals, computeHKS
+from models.layers.meshing.io import PolygonSoup
 from pathlib import Path
-from DA_Wand.util.diffusion_net.geometry import get_operators
+from util.diffusion_net.geometry import get_operators
 
 class DAWandData(BaseDataset):
     def __init__(self, opt, meshfile):

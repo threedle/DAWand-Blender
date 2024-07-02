@@ -6,7 +6,7 @@ import sys
 sys.path.append('../DA_Wand')
 import numpy as np
 from pathlib import Path
-from DA_Wand.models.layers.meshing import Mesh
+from models.layers.meshing import Mesh
 torch.autograd.set_detect_anomaly(False)
 
 class DAWand:

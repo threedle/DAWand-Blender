@@ -9,7 +9,7 @@ import shutil
 #import fresnel don't need for blender I guess
 import sys
 sys.path.append('../DA_Wand')
-from DA_Wand.models.layers.meshing.analysis import computeDihedrals
+from models.layers.meshing.analysis import computeDihedrals
 
 
 def time_function(func):

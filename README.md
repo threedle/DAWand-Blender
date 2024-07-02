@@ -1,15 +1,12 @@
-# DA Wand for Blender v0.6.2
+# DA Wand for Blender v0.7
 
 ### What's New
- - rearranged everything, now a dedicated 'unwrap button' with multiple modes
- - clear selection, clear uvs, and clear both buttons added (and they work)
- - Preserve UVs and Generate new map both working, will now not overwrite your UVs
- - WORKS ON BLENDER 4.1 (should still work on 3.6)
- - fixed behavior for selection on unwrap
+ - rearranged for release
+ - added more error checking
 ### TODO
  - Warning checking on Blender unwrap - it works on SLIM unwrap, but proved incredibly hard to tell when the blender unwrap fails (it returns FINISHED even when it fails)
- - test install (though I think it's better now that there's no pygco)
- - circular import? fixed?? I don't know
+ - test install on windows
+ - figure out why there is an attribute error on a triangulated suzanne monkey
 
 ### Installation
 Two ways to install

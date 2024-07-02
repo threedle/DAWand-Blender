@@ -17,7 +17,7 @@ from .utils import toNP
 # NOTE: Remember that the directories are relative to the sys path in blender!!
 import sys
 sys.path.append('../../DA_Wand')
-import DA_Wand.util.diffusion_net.utils as utils
+import util.diffusion_net.utils as utils
 
 
 def norm(x, highdim=False):

@@ -6,10 +6,10 @@ import functools
 from torch.optim import lr_scheduler
 import sys
 sys.path.append('../DA_Wand')
-from DA_Wand.models.layers.mesh_conv import MeshConv
+from models.layers.mesh_conv import MeshConv
 import torch.nn.functional as F
-from DA_Wand.models.layers.mesh_pool import MeshPool
-from DA_Wand.models.layers.mesh_unpool import MeshUnpool
+from models.layers.mesh_pool import MeshPool
+from models.layers.mesh_unpool import MeshUnpool
 import numpy as np
 
 ###############################################################################
