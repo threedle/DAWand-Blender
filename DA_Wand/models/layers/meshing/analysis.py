@@ -103,8 +103,13 @@ def computeDihedrals(mesh):
     n1 = []
     n2 = []
     for key, e in sorted(mesh.topology.edges.items()):
-        n1.append(mesh.facenormals[e.halfedge.face.index])
-        n2.append(mesh.facenormals[e.halfedge.twin.face.index])
+        # Dihedral for boundary edges defaults to 0
+        if e.halfedge.face.isBoundaryLoop() or e.halfedge.twin.face.isBoundaryLoop():
+            n1.append(np.zeros(3))
+            n2.append(np.zeros(3))
+        else:
+            n1.append(mesh.facenormals[e.halfedge.face.index])
+            n2.append(mesh.facenormals[e.halfedge.twin.face.index])
     cosTheta = (np.array(n1) * np.array(n2)).sum(axis=1).clip(-1, 1)
     mesh.dihedrals = (np.pi - np.arccos(cosTheta)).reshape(len(cosTheta), 1)
 
