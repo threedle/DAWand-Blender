@@ -228,6 +228,13 @@ dir_path = ""
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
+    
+    step = 0
+    _timer = None
+
+    prevselected = []
+    selected_face = None
+    mapping = []
 
     #don't know what these are for, but were in the modal quickstart
     def __init__(self):
@@ -241,126 +248,148 @@ class OnClick(bpy.types.Operator):
         return {'FINISHED'}
 
     #main function
-    def mark_seams_by_index(self, context):
-        obj = context.object
-        mesh = obj.data
-        bm = bmesh.from_edit_mesh(mesh)
-        wm = context.window_manager
-        #hopefully these will let us turn these on
-        ff = wm.floodfill
-        gc = wm.graphcuts
-
-        #some set up for the modes
-        prevselected = []
-        selected_faces = []
-        selected_face = None
-
-        #check if in edit mode
-        if obj.mode != 'EDIT':
-            self.report({'ERROR'}, "Please enter Edit Mode.")
-            return {'CANCELLED'}
-
-
-        #save what is currently selected
-        for f in bm.faces:
-            if f.select:
-                prevselected.append(f.index)
-
-        #MAIN SELECTION LOGIC
-
-        #deselect all
-        bpy.ops.mesh.select_all(action='DESELECT')
-
-        # Select the face under the mouse cursor
-        bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
-
-        # Get the selected bmesh face
-        selected_face = None
-        for f in bm.faces:
-            if f.select:
-                selected_face = f.index + len(bm.verts)
-
-        if selected_face is None:
-            self.report({'ERROR'}, "Please select a valid face.")
-            return {'CANCELLED'}
-
-
-        # Only export if the current mesh vertex set has changed
-        mesh_changed = False
-        if vertex_set is None:
-            mesh_changed = True
-        else:
-            mesh_changed = not np.allclose(vertex_set, bm.verts)
-
-        global dir_path
-        if mesh_changed:
-            dir_path = os.path.dirname(os.path.realpath(__file__))
-            target_file = os.path.join(dir_path, 'tempobj.obj')
-            # bpy.ops.export_scene.obj(filepath=target_file, keep_vertex_order=True,
-            #                         use_materials=False, use_uvs=False, use_normals=False, use_triangles=True)
-            
-            bpy.ops.wm.obj_export(filepath=target_file, export_uv=False, 
-                                  export_normals=False, export_materials=False,
-                                export_selected_objects=True)
-            
-            # Also need to wipe the cache
-            if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
-                clear_directory(os.path.join(dir_path, '__dawandcache__'))
-
-        #redeclare the bmesh
-        bpy.ops.object.mode_set(mode='EDIT')
-        obj = context.object
-        mesh = obj.data
-        bm = bmesh.from_edit_mesh(mesh)
-
-        try:
-            mapping = oncall(selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
-        except IndexError:
-            self.report({'ERROR'}, f"Something went wrong when exporting the mesh, ensure the object is selected before entering edit mode")
-            return {'CANCELLED'}
-        except AssertionError:
-            self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
-            return {'CANCELLED'}
-        except AttributeError:
-            self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
-            return {'CANCELLED'}
-
-        bm.faces.ensure_lookup_table()
-
-        #select the faces
-        for i in range(len(bm.faces)):
-            if mapping[i] == 1:
-                bm.faces[i].select = True
-
-        #and select everything that was selected before
-        #we are always extending the CLICK
-        for face in prevselected:
-                bm.faces[face].select = True
-
-        #at this point, all of the faces should be selected
-        #but the user can still select more if they want
-
-        #then bmesh update
-        bmesh.update_edit_mesh(mesh)
+    #def mark_seams_by_index(self, context):
+        
 
     def modal(self, context, event):
         context.area.tag_redraw()
         if event.type == 'ESC':  #Should cancel
             return {'CANCELLED'}
+        
+        wm = context.window_manager
+            #hopefully these will let us turn these on
+        ff = wm.floodfill
+        gc = wm.graphcuts
 
+        if self.step == 0:
+            obj = context.object
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
+            #some set up for the modes
+            self.prevselected = []
+            self.selected_face = None
+
+            #check if in edit mode
+            if obj.mode != 'EDIT':
+                self.report({'ERROR'}, "Please enter Edit Mode.")
+                return {'CANCELLED'}
+
+
+            #save what is currently selected
+            for f in bm.faces:
+                if f.select:
+                    self.prevselected.append(f.index)
+
+            #MAIN SELECTION LOGIC
+
+            #deselect all
+            bpy.ops.mesh.select_all(action='DESELECT')
+
+            # Select the face under the mouse cursor
+            bpy.ops.view3d.select(location=(self.mouse_x, self.mouse_y))
+
+            # Get the selected bmesh face
+            self.selected_face = None
+            for f in bm.faces:
+                if f.select:
+                    self.selected_face = f.index + len(bm.verts)
+
+            if self.selected_face is None:
+                self.report({'ERROR'}, "Please select a valid face.")
+                return {'CANCELLED'}
+            
+            for face in self.prevselected:
+                    bm.faces[face].select = True
+
+        elif self.step == 1:
+            # Only export if the current mesh vertex set has changed
+            mesh_changed = False
+            if vertex_set is None:
+                mesh_changed = True
+            else:
+                mesh_changed = not np.allclose(vertex_set, bm.verts)
+
+            global dir_path
+            if mesh_changed:
+                dir_path = os.path.dirname(os.path.realpath(__file__))
+                target_file = os.path.join(dir_path, 'tempobj.obj')
+            
+                bpy.ops.wm.obj_export(filepath=target_file, export_uv=False, 
+                                    export_normals=False, export_materials=False,
+                                    export_selected_objects=True)
+                
+                # Also need to wipe the cache
+                if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
+                    clear_directory(os.path.join(dir_path, '__dawandcache__'))
+
+            #redeclare the bmesh
+            bpy.ops.object.mode_set(mode='EDIT')
+            obj = context.object
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
+        elif self.step == 2:
+            try:
+                self.mapping = oncall(self.selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
+            except IndexError:
+                self.report({'ERROR'}, f"Something went wrong when exporting the mesh, ensure the object is selected before entering edit mode")
+                return {'CANCELLED'}
+            except AssertionError:
+                self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
+                return {'CANCELLED'}
+            except AttributeError:
+                self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
+                return {'CANCELLED'}
+            
+            obj = context.object
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+            bm.faces.ensure_lookup_table()
+
+            #select the faces
+            for i in range(len(bm.faces)):
+                if self.mapping[i] == 1:
+                    bm.faces[i].select = True
+
+            #and select everything that was selected before
+            #we are always extending the CLICK
+            for face in self.prevselected:
+                    bm.faces[face].select = True
+
+            #at this point, all of the faces should be selected
+            #but the user can still select more if they want
+
+            #then bmesh update
+            bmesh.update_edit_mesh(mesh)
+        else:
+            return {'FINISHED'}
+
+        self.step += 1
+        wm.progress = self.step
+        return {'INTERFACE'}
 
     def invoke(self, context, event):
         #call modal functions - not using
         #self.execute(context)
         #context.window_manager.modal_handler_add(self)
 
+        wm = context.window_manager
         #get mouse location of initial click
         self.mouse_x = int(event.mouse_region_x)
         self.mouse_y = int(event.mouse_region_y)
         #switch to face mode
         bpy.ops.mesh.select_mode(type="FACE")
-        self.mark_seams_by_index(context)
-        return {'FINISHED'}
+
+        self.step = 0
+        wm.progress = self.step
+
+        self._timer = wm.event_timer_add(0.1, window=context.window)
+        wm.modal_handler_add(self)
+
+        return {'RUNNING_MODAL'}
+        #self.mark_seams_by_index(context)
+        #return {'FINISHED'}
 
 
 class Clear_Anchors(bpy.types.Operator):
@@ -621,6 +650,9 @@ class DA_Menu(bpy.types.Panel):
         row = layout.row()
         row.operator(Unwrap.bl_idname, text="Unwrap")
 
+        if wm.progress > 0:
+            row = layout.row()
+            row.prop(wm, 'progress', slider=True)
 
 
 def register_properties():
@@ -642,6 +674,12 @@ def register_properties():
 
     bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
                                              description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
+    
+    bpy.types.WindowManager.progress = FloatProperty(name="Progress", default=0.0,
+                                                                     description='Progress of selection',
+                                                                     min=0, max=2,
+                                                                     options={'HIDDEN', 'SKIP_SAVE'}
+                                                                     )
 
 
 def unregister_properties():
@@ -650,3 +688,4 @@ def unregister_properties():
     del bpy.types.WindowManager.uv_mode
     del bpy.types.WindowManager.newmap
     del bpy.types.WindowManager.freeze
+    del bpy.types.WindowManager.progress

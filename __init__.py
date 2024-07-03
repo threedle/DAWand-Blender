@@ -178,7 +178,6 @@ def register():
         #basically we only register the tool if we have a keymap
         #seems like a heavyweight solution but fixes it.
         if kc:
-            print(kc)
             km = wm.keyconfigs.addon.keymaps.new(name='Mesh', space_type='EMPTY')
             kmi = km.keymap_items.new(DA_Icon.bl_idname, 'LEFTMOUSE', 'CLICK', ctrl=False, shift=False)
             addon_keymaps.append((km, kmi))
