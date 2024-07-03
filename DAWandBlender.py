@@ -367,6 +367,7 @@ class OnClick(bpy.types.Operator):
 
         self.step += 1
         wm.progress = self.step
+        wm.progress = self.step * 50
         return {'INTERFACE'}
 
     def invoke(self, context, event):
@@ -675,12 +676,11 @@ def register_properties():
     bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
                                              description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
     
-    bpy.types.WindowManager.progress = FloatProperty(name="Progress", default=0.0,
+    bpy.types.WindowManager.progress = FloatProperty(name="", default=0.0,
                                                                      description='Progress of selection',
-                                                                     min=0, max=2,
+                                                                     min=0, max=100,
                                                                      options={'HIDDEN', 'SKIP_SAVE'}
                                                                      )
-
 
 def unregister_properties():
     del bpy.types.WindowManager.floodfill
