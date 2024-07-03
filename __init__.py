@@ -131,7 +131,7 @@ preference_classes = (EXAMPLE_OT_install_dependencies,
                       EXAMPLE_preferences)
 
 
-
+addon_keymaps = []
 
 def register():
     global dependencies_installed
@@ -161,20 +161,42 @@ def register():
     if dependencies_installed:
         from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
 
-        bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
+        
+        #bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)
         bpy.utils.register_class(DA_Menu)
         bpy.utils.register_class(Clear_Anchors)
         bpy.utils.register_class(Unwrap)
         bpy.utils.register_class(Clear_Sel)
         bpy.utils.register_class(Clear_UV)
+
+        #keymap garbage
+        wm = bpy.context.window_manager
+        keyconfigs = wm.keyconfigs
+        kc = keyconfigs.addon
+        
+        #basically we only register the tool if we have a keymap
+        #seems like a heavyweight solution but fixes it.
+        if kc:
+            print(kc)
+            km = wm.keyconfigs.addon.keymaps.new(name='Mesh', space_type='EMPTY')
+            kmi = km.keymap_items.new(DA_Icon.bl_idname, 'LEFTMOUSE', 'CLICK', ctrl=False, shift=False)
+            addon_keymaps.append((km, kmi))
+            bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
+
         register_properties()
+
+       
     else:
         return
 
 def unregister():
 
     from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
+
+    for km, kmi in addon_keymaps:
+        km.keymap_items.remove(kmi)
+    addon_keymaps.clear()
 
     for cls in preference_classes:
         bpy.utils.unregister_class(cls)
