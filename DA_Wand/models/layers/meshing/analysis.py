@@ -104,7 +104,7 @@ def computeDihedrals(mesh):
     n2 = []
     for key, e in sorted(mesh.topology.edges.items()):
         # Dihedral for boundary edges defaults to 0
-        if e.halfedge.face.isBoundaryLoop() or e.halfedge.twin.face.isBoundaryLoop():
+        if e.halfedge is None or e.halfedge.twin is None:
             n1.append(np.zeros(3))
             n2.append(np.zeros(3))
         else:
