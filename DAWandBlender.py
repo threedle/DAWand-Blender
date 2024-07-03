@@ -321,6 +321,9 @@ class OnClick(bpy.types.Operator):
         except AssertionError:
             self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
             return {'CANCELLED'}
+        except AttributeError:
+            self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
+            return {'CANCELLED'}
 
         bm.faces.ensure_lookup_table()
 
