@@ -40,164 +40,6 @@ def run_forward_pass(model, dataset, face_list, return_features=False):
     return preds
 
 
-def oncall(point, meshfile, meshdir, ff, gc, done_faces = None):
-
-    #no parser hehe
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    modeldir = os.path.join(dir_path, 'DA_Wand/checkpoints')
-    modelname = 'dawand'
-    optname = 'opt'
-    normalize = 'store_true'
-
-    with open(os.path.join(modeldir, f"{optname}.pkl"), 'rb') as f:
-        opt = pickle.load(f)
-    opt.export_save_path = modeldir
-    opt.dataroot = meshdir
-    opt.test_dir = meshdir
-    opt.network_load_path = modeldir
-
-    # TODO: temporary opt fix
-    opt.arch = "meshcnn"
-
-    # Turn off all extraneous settings
-    opt.name = ""
-    opt.time = False
-    opt.semantic_loss = False
-    opt.is_train = False
-    opt.testaug = False
-    opt.num_aug = 0
-    opt.serial_batches = True  # no shuffle
-    opt.time = False
-    opt.export_view_freq = 0
-    opt.export_preds = False
-    opt.continue_train = False
-    opt.floodfillparam = False
-    opt.test_aug = False
-    opt.which_epoch = modelname
-    opt.ff_epoch = modelname
-    opt.export_pool = False
-    opt.distortion_loss = None
-    opt.delayed_distortion_epochs = float('inf')
-    opt.solo_distortion = False
-    opt.shuffle_topo = False
-    opt.num_threads = 0
-    opt.supervised = False
-    opt.gcsupervision = False
-    opt.floodfillparam = False
-
-    # NOTE: hacky way to guarantee only 1 copy of mesh in dataset but it works
-    meshname = meshfile.replace(".obj", "")
-    opt.subset = [f"{meshname}_0"]
-    opt.max_dataset_size = 1
-    opt.max_sample_size = 1
-    opt.interactive = True
-
-    opt.overwritecache = False
-    opt.cachefolder = "__dawandcache__"
-    opt.anchorcachefolder = "__dawandcache__"
-    # opt.overwriteopcache = True
-    opt.overwriteanchorcache = True
-    opt.overwritemeanstd = True
-    if not torch.cuda.is_available():
-        opt.gpu_ids = []
-    else:
-        opt.gpu_ids = [0]
-    model = create_model(opt)
-    print(f"Model loaded from {model.save_dir}")
-
-    dataset = DAWandData(opt, meshfile)
-    soup = PolygonSoup.from_obj(os.path.join(meshdir, meshfile))
-    mesh = Mesh(soup.vertices, soup.indices)
-
-    if normalize:
-        mesh.normalize()
-        mesh.export_obj(meshdir, f"{meshname}_norm")
-
-    current_index_list = []
-    current_anchor_pos = []
-    previous_preds = None
-    preds = None
-    pred_cache = {}
-    mode = "model"
-    prev_mode = "model"
-    mode_options = ['model']
-
-    # Default settings
-    alpha = 1
-    beta = 0.7
-    gamma = 0.5
-    dthreshold = 0.3
-    ethreshold = 100
-    method = None
-    if ff and gc:
-        postprocess = ["gc", "ff"]
-    elif ff:
-        postprocess = ["ff"]
-    elif gc:
-        postprocess = ["gc"]
-    else:
-        postprocess = []
-    ff = True
-    gc = True
-    uvmode = False
-    include_anchor = True
-    patchgrow = False
-    face_index = None
-    changed = True
-
-    isometric = 0
-
-    vertices, faces, _ = mesh.export_soup()
-    vrange = np.arange(len(vertices))
-    frange = np.arange(len(vertices), len(vertices) + len(faces))
-
-    current_struct = ''
-
-    #we'll need to get this index from blender
-    structure, index = 'mesh', point #this is where it gets the currently selected guy
-
-    #shouldn't need any postprocess options lol
-
-    # == Execute inference if change detected in selection (append anchor to inference) ==
-    face_index = index - min(frange)
-    new_selection = (face_index not in current_index_list)
-    if structure == "mesh" and new_selection and index in frange:
-        print(f"Current anchors list: {current_index_list}, New anchor: {face_index}")
-        current_index_list = [face_index]
-        current_anchor_pos = []
-        preds = None
-        previous_preds = None
-
-        # Run inference on new anchor set
-        if mode == "model":
-            preds = run_forward_pass(model, dataset, current_index_list)
-            preds = preds.squeeze().detach().cpu().numpy()
-            # Reset the pred cache
-            pred_cache = {'model': preds}
-
-            # Run postprocesses
-            predkey = "model"
-            for post in postprocess:
-                if post == "gc":
-                    preds = graphcuts(preds, mesh)
-                    predkey += "_gc"
-                    pred_cache[predkey] = preds
-                if post == "ff":
-                    preds = floodfill_scalar_v2(mesh, torch.from_numpy(preds).float(), face_index, previous_preds = torch.from_numpy(previous_preds).float() if (previous_preds is not None and patchgrow) else None).detach().numpy()
-                    predkey += "_ff"
-                    pred_cache[predkey] = preds
-
-            previous_preds = preds
-            hard_preds = np.round(preds)
-
-        anchor_pos = np.mean([mesh.vertices[v.index] for v in mesh.topology.faces[face_index].adjacentVertices()], axis=0, keepdims=True)
-        current_anchor_pos.append(anchor_pos)
-
-        # Anchor colors are all fixed except most recent
-        anchor_colors = [[0,0,1] for _ in current_anchor_pos[:-1]] + [[0,1,0]]
-        return(hard_preds)
-
-
 #Blender Call
 
 done_faces = [] # List of faces that have already been assigned
@@ -221,7 +63,13 @@ def uv_from_vert_average(uv_layer, v):
     else:
         return None
 
-
+class steps(Enum):
+    Nothing = 0
+    Starting = 1
+    Exporting = 2
+    Preprocessing = 3
+    Processing = 4
+    Finished = 5
 
 dir_path = ""
 
@@ -229,12 +77,198 @@ class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
     
-    step = 0
+    step = steps.Nothing
     _timer = None
 
     prevselected = []
     selected_face = None
     mapping = []
+    ff, gc = None, None
+
+    model = None
+    mesh = None
+    dataset = None
+    frange = None
+
+    def reset(self, context):
+        self.step = steps.Nothing
+        
+        wm = context.window_manager
+        wm.event_timer_remove(self._timer)
+        wm.progress = self.step.value
+
+        self.prevselected = []
+        self.selected_face = None
+        self.mapping = []
+        self.ff, self.gc = None, None
+
+        self.model = None
+        self.mesh = None
+        self.dataset = None
+        self.frange = None
+
+    def preprocess(self, meshfile, meshdir):
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        modeldir = os.path.join(dir_path, 'DA_Wand/checkpoints')
+        modelname = 'dawand'
+        optname = 'opt'
+        normalize = 'store_true'
+
+        with open(os.path.join(modeldir, f"{optname}.pkl"), 'rb') as f:
+            opt = pickle.load(f)
+        opt.export_save_path = modeldir
+        opt.dataroot = meshdir
+        opt.test_dir = meshdir
+        opt.network_load_path = modeldir
+
+        # TODO: temporary opt fix
+        opt.arch = "meshcnn"
+
+        # Turn off all extraneous settings
+        opt.name = ""
+        opt.time = False
+        opt.semantic_loss = False
+        opt.is_train = False
+        opt.testaug = False
+        opt.num_aug = 0
+        opt.serial_batches = True  # no shuffle
+        opt.time = False
+        opt.export_view_freq = 0
+        opt.export_preds = False
+        opt.continue_train = False
+        opt.floodfillparam = False
+        opt.test_aug = False
+        opt.which_epoch = modelname
+        opt.ff_epoch = modelname
+        opt.export_pool = False
+        opt.distortion_loss = None
+        opt.delayed_distortion_epochs = float('inf')
+        opt.solo_distortion = False
+        opt.shuffle_topo = False
+        opt.num_threads = 0
+        opt.supervised = False
+        opt.gcsupervision = False
+        opt.floodfillparam = False
+
+        # NOTE: hacky way to guarantee only 1 copy of mesh in dataset but it works
+        meshname = meshfile.replace(".obj", "")
+        opt.subset = [f"{meshname}_0"]
+        opt.max_dataset_size = 1
+        opt.max_sample_size = 1
+        opt.interactive = True
+
+        opt.overwritecache = False
+        opt.cachefolder = "__dawandcache__"
+        opt.anchorcachefolder = "__dawandcache__"
+        # opt.overwriteopcache = True
+        opt.overwriteanchorcache = True
+        opt.overwritemeanstd = True
+        if not torch.cuda.is_available():
+            opt.gpu_ids = []
+        else:
+            opt.gpu_ids = [0]
+
+        self.model = create_model(opt)
+        print(f"Model loaded from {self.model.save_dir}")
+
+        self.dataset = DAWandData(opt, meshfile)
+        soup = PolygonSoup.from_obj(os.path.join(meshdir, meshfile))
+        self.mesh = Mesh(soup.vertices, soup.indices)
+
+        if normalize:
+            self.mesh.normalize()
+            self.mesh.export_obj(meshdir, f"{meshname}_norm")
+
+        
+        # prev_mode = "model"
+        # mode_options = ['model']
+
+        # Default settings
+        # alpha = 1
+        # beta = 0.7
+        # gamma = 0.5
+        # dthreshold = 0.3
+        # ethreshold = 100
+        # method = None
+        
+        # if ff and gc:
+        #     postprocess = ["gc", "ff"]
+        # elif ff:
+        #     postprocess = ["ff"]
+        # elif gc:
+        #     postprocess = ["gc"]
+        # else:
+        #     postprocess = []
+        # ff = True
+        # gc = True
+        #uvmode = False
+        #include_anchor = True
+        
+        #changed = True
+
+        #isometric = 0
+
+        vertices, faces, _ = self.mesh.export_soup()
+        #vrange = np.arange(len(vertices))
+        self.frange = np.arange(len(vertices), len(vertices) + len(faces))
+
+        #current_struct = ''
+
+    def process(self):    
+        patchgrow = False
+        face_index = None
+        current_index_list = []
+        current_anchor_pos = []
+        previous_preds = None
+        preds = None
+        pred_cache = {}
+
+        frange = self.frange
+        model = self.model
+        dataset = self.dataset
+        mesh = self.mesh
+
+        #we'll need to get this index from blender
+        structure, index = 'mesh', self.selected_face #this is where it gets the currently selected guy
+
+        #def process():
+        # == Execute inference if change detected in selection (append anchor to inference) ==
+        face_index = index - min(frange)
+        new_selection = (face_index not in current_index_list)
+        if structure == "mesh" and new_selection and index in frange:
+            print(f"Current anchors list: {current_index_list}, New anchor: {face_index}")
+            current_index_list = [face_index]
+            current_anchor_pos = []
+            preds = None
+            previous_preds = None
+
+            # Run inference on new anchor set
+            preds = run_forward_pass(model, dataset, current_index_list)
+            preds = preds.squeeze().detach().cpu().numpy()
+            # Reset the pred cache
+            pred_cache = {'model': preds}
+
+            # Run postprocesses
+            predkey = "model"
+            if self.gc:
+                preds = graphcuts(preds, mesh)
+                predkey += "_gc"
+                pred_cache[predkey] = preds
+            if self.ff:
+                preds = floodfill_scalar_v2(mesh, torch.from_numpy(preds).float(), face_index, previous_preds = torch.from_numpy(previous_preds).float() if (previous_preds is not None and patchgrow) else None).detach().numpy()
+                predkey += "_ff"
+                pred_cache[predkey] = preds
+
+            previous_preds = preds
+            hard_preds = np.round(preds)
+
+            anchor_pos = np.mean([mesh.vertices[v.index] for v in mesh.topology.faces[face_index].adjacentVertices()], axis=0, keepdims=True)
+            current_anchor_pos.append(anchor_pos)
+
+            # Anchor colors are all fixed except most recent
+            #anchor_colors = [[0,0,1] for _ in current_anchor_pos[:-1]] + [[0,1,0]]
+            self.mapping = hard_preds
+
 
     #don't know what these are for, but were in the modal quickstart
     def __init__(self):
@@ -246,22 +280,20 @@ class OnClick(bpy.types.Operator):
     #for the modal stuff, like mousemove - not using
     def execute(self, context):
         return {'FINISHED'}
-
-    #main function
-    #def mark_seams_by_index(self, context):
         
 
     def modal(self, context, event):
         context.area.tag_redraw()
         if event.type == 'ESC':  #Should cancel
+            self.report({'ERROR'}, "Cancelled by ESC press")
+            self.reset(context)
             return {'CANCELLED'}
         
         wm = context.window_manager
-            #hopefully these will let us turn these on
-        ff = wm.floodfill
-        gc = wm.graphcuts
+        self.ff = wm.floodfill
+        self.gc = wm.graphcuts
 
-        if self.step == 0:
+        if self.step == steps.Starting:
             obj = context.object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
@@ -273,8 +305,8 @@ class OnClick(bpy.types.Operator):
             #check if in edit mode
             if obj.mode != 'EDIT':
                 self.report({'ERROR'}, "Please enter Edit Mode.")
+                self.reset(context)
                 return {'CANCELLED'}
-
 
             #save what is currently selected
             for f in bm.faces:
@@ -297,12 +329,13 @@ class OnClick(bpy.types.Operator):
 
             if self.selected_face is None:
                 self.report({'ERROR'}, "Please select a valid face.")
+                self.reset(context)
                 return {'CANCELLED'}
             
             for face in self.prevselected:
                     bm.faces[face].select = True
 
-        elif self.step == 1:
+        elif self.step == steps.Exporting:
             # Only export if the current mesh vertex set has changed
             mesh_changed = False
             if vertex_set is None:
@@ -329,19 +362,25 @@ class OnClick(bpy.types.Operator):
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
 
-        elif self.step == 2:
+        elif self.step == steps.Preprocessing:
             try:
-                self.mapping = oncall(self.selected_face, 'tempobj.obj', dir_path, ff, gc, done_faces=done_faces)
+                self.preprocess('tempobj.obj', dir_path)  
             except IndexError:
-                self.report({'ERROR'}, f"Something went wrong when exporting the mesh, ensure the object is selected before entering edit mode")
+                self.report({'ERROR'}, f"Something went wrong when loading the mesh, ensure the object is selected before entering edit mode")
+                self.reset(context)
                 return {'CANCELLED'}
             except AssertionError:
                 self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
+                self.reset(context)
                 return {'CANCELLED'}
             except AttributeError:
                 self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
+                self.reset(context)
                 return {'CANCELLED'}
-            
+       
+        elif self.step == steps.Processing:
+            self.process()
+        else:
             obj = context.object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
@@ -362,19 +401,14 @@ class OnClick(bpy.types.Operator):
 
             #then bmesh update
             bmesh.update_edit_mesh(mesh)
-        else:
+            self.reset(context)
             return {'FINISHED'}
 
-        self.step += 1
-        wm.progress = self.step
-        wm.progress = self.step * 50
+        self.step = steps(self.step.value + 1)
+        wm.progress = self.step.value * 20
         return {'INTERFACE'}
 
     def invoke(self, context, event):
-        #call modal functions - not using
-        #self.execute(context)
-        #context.window_manager.modal_handler_add(self)
-
         wm = context.window_manager
         #get mouse location of initial click
         self.mouse_x = int(event.mouse_region_x)
@@ -382,8 +416,8 @@ class OnClick(bpy.types.Operator):
         #switch to face mode
         bpy.ops.mesh.select_mode(type="FACE")
 
-        self.step = 0
-        wm.progress = self.step
+        self.step = steps.Starting
+        wm.progress = self.step.value * 20
 
         self._timer = wm.event_timer_add(0.1, window=context.window)
         wm.modal_handler_add(self)
@@ -429,7 +463,6 @@ class Clear_Sel(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
-        mesh = obj.data
 
         #check if in edit mode
         if obj.mode != 'EDIT':
@@ -483,7 +516,6 @@ class Unwrap(bpy.types.Operator):
         freeze = wm.freeze
         
         global dir_path
-
 
         #check if in edit mode
         if obj.mode != 'EDIT':
@@ -585,8 +617,6 @@ class Unwrap(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
-
 class DA_Icon(bpy.types.WorkSpaceTool):
     #set up the ui
     bl_space_type = 'VIEW_3D'
@@ -599,9 +629,7 @@ class DA_Icon(bpy.types.WorkSpaceTool):
     )
     #set the icon and cursor
     dir_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "icons")
-    #print(dir_path)
     icon = os.path.join(dir_path, 'wand.wand')
-    #print(icon)
     bl_icon = icon
     #sets the functionality
     bl_keymap = (
@@ -653,6 +681,9 @@ class DA_Menu(bpy.types.Panel):
 
         if wm.progress > 0:
             row = layout.row()
+            step = steps(int(wm.progress / 20))
+            row.label(text=f"{step.name}...")
+            row = layout.row()
             row.prop(wm, 'progress', slider=True)
 
 
@@ -676,10 +707,10 @@ def register_properties():
     bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
                                              description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
     
-    bpy.types.WindowManager.progress = FloatProperty(name="", default=0.0,
+    bpy.types.WindowManager.progress = FloatProperty(name="Total Progress", default=0,
                                                                      description='Progress of selection',
                                                                      min=0, max=100,
-                                                                     options={'HIDDEN', 'SKIP_SAVE'}
+                                                                     options={'HIDDEN', 'SKIP_SAVE'}, precision = 0
                                                                      )
 
 def unregister_properties():

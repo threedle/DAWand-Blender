@@ -1,7 +1,7 @@
-# DA Wand for Blender v0.7.1
+# DA Wand for Blender v0.7.2
 
 ### What's New
- - adding loading bar
+ - loading bar done
 ### TODO
  - Warning checking on Blender unwrap - it works on SLIM unwrap, but proved incredibly hard to tell when the blender unwrap fails (it returns FINISHED even when it fails)
  - test install on windows
