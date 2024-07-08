@@ -371,10 +371,10 @@ class OnClick(bpy.types.Operator):
                 self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
                 self.reset(context)
                 return {'CANCELLED'}
-            except AttributeError:
-                self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
-                self.reset(context)
-                return {'CANCELLED'}
+            # except AttributeError:
+            #     self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
+            #     self.reset(context)
+            #     return {'CANCELLED'}
 
         elif self.step == steps.Processing:
             self.process()

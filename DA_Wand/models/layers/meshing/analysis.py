@@ -15,7 +15,7 @@ def computeFacetoEdges(mesh):
     return ftoe
 
 def computeFaceNeighborMatrix(mesh):
-    face_matrix = [[face.halfedge]
+    face_matrix = [[face.halfedge.index]
                     for key, face in sorted(mesh.topology.faces.items())]
     mesh.facemat = np.array(face_matrix, dtype=int)
 
@@ -82,7 +82,7 @@ def computeFaceNormals(mesh):
     if len(n.shape) > 1:
         n /= np.linalg.norm(n, axis=1, keepdims=True)
 
-    mesh.fnormals = n
+    mesh.facenormals = n
 
 # Mean of adjacent face normals
 def computeVertexNormals(mesh):
@@ -90,7 +90,7 @@ def computeVertexNormals(mesh):
         computeFaceNormals(mesh)
     if not hasattr(mesh, "f_to_v"):
         computeFaceToVertex(mesh)
-    n = [np.mean(mesh.fnormals[fvec], axis=0) for fvec in mesh.f_to_v]
+    n = [np.mean(mesh.facenormals[fvec], axis=0) for fvec in mesh.f_to_v]
     mesh.vertexnormals = np.array(n)
 
 # Mean of incident dihedrals

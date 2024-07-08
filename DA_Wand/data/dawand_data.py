@@ -6,7 +6,7 @@ import numpy as np
 import sys
 sys.path.append("..")
 from models.layers.meshing.mesh import Mesh
-from models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles, computeVertexNormals
+from models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles
 from models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals
 from models.layers.meshing.io import PolygonSoup
 from pathlib import Path
@@ -192,6 +192,10 @@ class DAWandData(BaseDataset):
         return paths, cachepaths, anchorcachepaths, operatorpaths, labelpaths, anchor_fs, anchor_fs_labels, augs
 
 def compute_and_cache(mesh, cachepath=None):
+    # Compute other relevant features
+    computeFaceAreas(mesh)
+    computeFaceNormals(mesh)
+
     # Precompute all the standard edge features
     computeDihedrals(mesh)
     computeEdgeRatios(mesh)
@@ -200,10 +204,6 @@ def compute_and_cache(mesh, cachepath=None):
     # Compute edge matrix
     computeEdgeNeighborMatrix(mesh)
     computeFaceNeighborMatrix(mesh)
-
-    # Compute other relevant features
-    computeFaceAreas(mesh)
-    computeFaceNormals(mesh)
 
     mesh.edge_to_f = np.array([[e.halfedge.face.index, e.halfedge.twin.face.index] for key, e in sorted(mesh.topology.edges.items())])
     mesh.edgenormals = np.mean(mesh.facenormals[mesh.edge_to_f], axis=1)
