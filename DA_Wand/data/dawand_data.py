@@ -1,9 +1,11 @@
 import os
 from util.util import is_mesh_file, pad, compute_hks
 import torch
-from . base_dataset import BaseDataset
+from .base_dataset import BaseDataset
 import numpy as np
-from models.layers.meshing import Mesh
+import sys
+sys.path.append("..")
+from models.layers.meshing.mesh import Mesh
 from models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles, computeVertexNormals
 from models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals, computeHKS
 from models.layers.meshing.io import PolygonSoup

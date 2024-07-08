@@ -3,55 +3,55 @@ import numpy as np
 # Constructs E x 5 matrix of edge neighbors
 def computeEdgeNeighborMatrix(mesh):
     edge_matrix = [[edge.index, edge.halfedge.next.edge.index, edge.halfedge.next.next.edge.index,
-                        edge.halfedge.twin.next.edge.index, edge.halfedge.twin.next.next.edge.index] 
+                        edge.halfedge.twin.next.edge.index, edge.halfedge.twin.next.next.edge.index]
                    for key, edge in sorted(mesh.topology.edges.items())]
     mesh.edgemat = np.array(edge_matrix, dtype=int)
-    
+
+# NOTE: Ignores boundary!!
+def computeFacetoEdges(mesh):
+    ftoe = [[edge.index for edge in face.adjacentEdges() if not edge.onBoundary()]
+                    for key, face in sorted(mesh.topology.faces.items())]
+    mesh.ftoe = ftoe
+    return ftoe
+
 def computeFaceNeighborMatrix(mesh):
-    face_matrix = [[face.index, face.halfedge.twin.face.index, face.halfedge.next.twin.face.index,
-                    face.halfedge.next.next.twin.face.index] 
+    face_matrix = [[face.halfedge]
                     for key, face in sorted(mesh.topology.faces.items())]
     mesh.facemat = np.array(face_matrix, dtype=int)
 
 def computeFaceToVertex(mesh):
-    f_to_v = [] 
+    f_to_v = []
     for vind, v in sorted(mesh.topology.vertices.items()):
         f_to_v.append([f.index for f in v.adjacentFaces()])
     mesh.f_to_v = f_to_v # list of lists (potentially different lengths!)
 
 def computeVertexToFace(mesh):
-    v_to_f = [[v.index for v in f.adjacentVertices()] for _, f in sorted(mesh.topology.faces.items())]  
+    v_to_f = [[v.index for v in f.adjacentVertices()] for _, f in sorted(mesh.topology.faces.items())]
     mesh.v_to_f = np.array(v_to_f) # F x 3
-    
+
 def computeEdgeToVertex(mesh):
-    e_to_v = [] 
+    e_to_v = []
     for vind, v in sorted(mesh.topology.vertices.items()):
         e_to_v.append([e.index for e in v.adjacentEdges()])
     mesh.e_to_v = e_to_v
-    
+
 def normalize(arr, axis=None, eps=1e-5):
     norm = np.linalg.norm(arr, axis=axis, keepdims=True)
     norm[norm < eps] = eps
     return arr / norm
 
-def computeHKS(mesh, k=128, t=np.array([1])):
-    from pyhks.hks import get_hks
-    vertices, faces, _ = mesh.export_soup() 
-    hks = get_hks(vertices, faces, k, t)
-    mesh.hks = hks 
-
-def computeFaceNormals(mesh):
-    edges1 = []
-    edges2 = []
-    for key, f in sorted(mesh.topology.faces.items()):
-        if f.isBoundaryLoop():
-            continue
-        u = mesh.vector(f.halfedge)
-        v = -1 * mesh.vector(f.halfedge.prev())
-        edges1.append(u)
-        edges2.append(v)
-    n = normalize(np.cross(edges1, edges2, axis=1), axis=1)    
-    mesh.facenormals = n
+# def computeFaceNormals(mesh):
+#     edges1 = []
+#     edges2 = []
+#     for key, f in sorted(mesh.topology.faces.items()):
+#         if f.isBoundaryLoop():
+#             continue
+#         u = mesh.vector(f.halfedge)
+#         v = -1 * mesh.vector(f.halfedge.prev())
+#         edges1.append(u)
+#         edges2.append(v)
+#     n = normalize(np.cross(edges1, edges2, axis=1), axis=1)
+#     mesh.facenormals = n
 
 def computeFaceAreas(mesh):
     edges1 = []
@@ -66,16 +66,34 @@ def computeFaceAreas(mesh):
     n = 0.5 * np.linalg.norm(np.cross(edges1, edges2, axis=1), axis=1)
     mesh.fareas = n
 
-# Mean of adjacent face normals 
+def computeFaceNormals(mesh):
+    # NOTE: Determinant of transpose is same as standard determinant!
+    edges1 = []
+    edges2 = []
+    for key, f in sorted(mesh.topology.faces.items()):
+        if f.isBoundaryLoop():
+            continue
+        u = mesh.vector(f.halfedge)
+        v = -1 * mesh.vector(f.halfedge.prev())
+        edges1.append(u/np.linalg.norm(u))
+        edges2.append(v/np.linalg.norm(v))
+    n = np.cross(edges1, edges2, axis=1)
+
+    if len(n.shape) > 1:
+        n /= np.linalg.norm(n, axis=1, keepdims=True)
+
+    mesh.fnormals = n
+
+# Mean of adjacent face normals
 def computeVertexNormals(mesh):
-    if not hasattr(mesh, "facenormals"):
+    if not hasattr(mesh, "fnormals"):
         computeFaceNormals(mesh)
     if not hasattr(mesh, "f_to_v"):
         computeFaceToVertex(mesh)
-    n = [np.mean(mesh.facenormals[fvec], axis=0) for fvec in mesh.f_to_v]
+    n = [np.mean(mesh.fnormals[fvec], axis=0) for fvec in mesh.f_to_v]
     mesh.vertexnormals = np.array(n)
 
-# Mean of incident dihedrals  
+# Mean of incident dihedrals
 def computeVertexDihedrals(mesh):
     if not hasattr(mesh, "dihedrals"):
         computeDihedrals(mesh)
@@ -87,8 +105,8 @@ def computeVertexDihedrals(mesh):
 def computeAngleDeficit(mesh):
     if not hasattr(mesh, "vertexangle"):
         computeVertexAngle(mesh)
-    mesh.angledeficit = 2 * np.pi - mesh.vertexangle 
-     
+    mesh.angledeficit = 2 * np.pi - mesh.vertexangle
+
 def computeVertexEdgeRatios(mesh):
     if not hasattr(mesh, "edgeratios"):
         computeEdgeRatios(mesh)
@@ -96,20 +114,15 @@ def computeVertexEdgeRatios(mesh):
         computeEdgeToVertex(mesh)
     vedgeratio = [np.mean(mesh.edgeratios[evec,:], axis=0) for evec in mesh.e_to_v]
     mesh.vertexedgeratios = np.array(vedgeratio)
-    
+
 def computeDihedrals(mesh):
     if not hasattr(mesh, "facenormals"):
         computeFaceNormals(mesh)
     n1 = []
     n2 = []
     for key, e in sorted(mesh.topology.edges.items()):
-        # Dihedral for boundary edges defaults to 0
-        if e.halfedge is None or e.halfedge.twin is None:
-            n1.append(np.zeros(3))
-            n2.append(np.zeros(3))
-        else:
-            n1.append(mesh.facenormals[e.halfedge.face.index])
-            n2.append(mesh.facenormals[e.halfedge.twin.face.index])
+        n1.append(mesh.facenormals[e.halfedge.face.index])
+        n2.append(mesh.facenormals[e.halfedge.twin.face.index])
     cosTheta = (np.array(n1) * np.array(n2)).sum(axis=1).clip(-1, 1)
     mesh.dihedrals = (np.pi - np.arccos(cosTheta)).reshape(len(cosTheta), 1)
 
@@ -133,11 +146,11 @@ def computeOppositeAngles(mesh):
     angles = np.sort(angles, axis=1)
     mesh.symmetricoppositeangles = angles
 
-# Compute interior face angles 
+# Compute interior face angles
 def computeFaceAngles(mesh):
-    angles = [] 
+    angles = []
     for key, f in sorted(mesh.topology.faces.items()):
-        fangle = [] 
+        fangle = []
         for e in f.adjacentEdges():
             v1 = mesh.vector(e.halfedge)
             v1 /= np.linalg.norm(v1)
@@ -146,20 +159,20 @@ def computeFaceAngles(mesh):
             fangle.append(np.arccos(np.dot(v1, v2).clip(-1,1)))
         angles.append(fangle)
     mesh.faceangles = np.array(angles)
-    
+
 def computeVertexAngle(mesh):
-    vangles = [] 
-    for key, v in sorted(mesh.topology.vertices.items()): 
-        angle = 0.0 
+    vangles = []
+    for key, v in sorted(mesh.topology.vertices.items()):
+        angle = 0.0
         halfedges = list(v.adjacentHalfedges())
         current_vec = mesh.vector(halfedges[0])
         current_vec /= np.linalg.norm(current_vec)
         for next_he in halfedges[1:]:
             next_vec = mesh.vector(next_he)
-            next_vec /= np.linalg.norm(next_vec)            
+            next_vec /= np.linalg.norm(next_vec)
             angle += np.arccos(np.clip(np.dot(current_vec, next_vec), -1, 1))
             current_vec = next_vec
-        # Last angle between last and first vectors 
+        # Last angle between last and first vectors
         next_vec = mesh.vector(halfedges[0])
         next_vec /= np.linalg.norm(next_vec)
         angle += np.arccos(np.clip(np.dot(current_vec, next_vec), -1, 1))
@@ -184,3 +197,9 @@ def computeEdgeRatios(mesh):
     ratios = np.column_stack((ratio1, ratio2))
     ratios = np.sort(ratios, axis=1)
     mesh.edgeratios = ratios
+
+def computeEdgeLengths(mesh):
+    lengths = []
+    for key, e in sorted(mesh.topology.edges.items()):
+        lengths.append(mesh.length(e))
+    mesh.edgelengths = np.array(lengths)

@@ -9,11 +9,9 @@ dir_path = (os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(os.path.join(dir_path, 'DA_Wand'))
 
 from data.dawand_data import DAWandData
-from models.layers.meshing.analysis import computeFaceAreas, computeDihedrals
-from models import create_model
-from models.layers.meshing import Mesh
+from models.create_model import create_model
+from models.layers.meshing.mesh import Mesh
 from models.layers.meshing.io import PolygonSoup
-from models.layers.meshing.edit import VertexStarCollapse, EdgeCollapse
 from models.networks import floodfill_scalar_v2
 from util.util import graphcuts, clear_directory
 
@@ -76,7 +74,7 @@ dir_path = ""
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
     bl_label = "OnClick"
-    
+
     step = steps.Nothing
     _timer = None
 
@@ -92,7 +90,7 @@ class OnClick(bpy.types.Operator):
 
     def reset(self, context):
         self.step = steps.Nothing
-        
+
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         wm.progress = self.step.value
@@ -179,7 +177,7 @@ class OnClick(bpy.types.Operator):
             self.mesh.normalize()
             self.mesh.export_obj(meshdir, f"{meshname}_norm")
 
-        
+
         # prev_mode = "model"
         # mode_options = ['model']
 
@@ -190,7 +188,7 @@ class OnClick(bpy.types.Operator):
         # dthreshold = 0.3
         # ethreshold = 100
         # method = None
-        
+
         # if ff and gc:
         #     postprocess = ["gc", "ff"]
         # elif ff:
@@ -203,7 +201,7 @@ class OnClick(bpy.types.Operator):
         # gc = True
         #uvmode = False
         #include_anchor = True
-        
+
         #changed = True
 
         #isometric = 0
@@ -214,7 +212,7 @@ class OnClick(bpy.types.Operator):
 
         #current_struct = ''
 
-    def process(self):    
+    def process(self):
         patchgrow = False
         face_index = None
         current_index_list = []
@@ -280,7 +278,7 @@ class OnClick(bpy.types.Operator):
     #for the modal stuff, like mousemove - not using
     def execute(self, context):
         return {'FINISHED'}
-        
+
 
     def modal(self, context, event):
         context.area.tag_redraw()
@@ -288,7 +286,7 @@ class OnClick(bpy.types.Operator):
             self.report({'ERROR'}, "Cancelled by ESC press")
             self.reset(context)
             return {'CANCELLED'}
-        
+
         wm = context.window_manager
         self.ff = wm.floodfill
         self.gc = wm.graphcuts
@@ -331,7 +329,7 @@ class OnClick(bpy.types.Operator):
                 self.report({'ERROR'}, "Please select a valid face.")
                 self.reset(context)
                 return {'CANCELLED'}
-            
+
             for face in self.prevselected:
                     bm.faces[face].select = True
 
@@ -347,11 +345,11 @@ class OnClick(bpy.types.Operator):
             if mesh_changed:
                 dir_path = os.path.dirname(os.path.realpath(__file__))
                 target_file = os.path.join(dir_path, 'tempobj.obj')
-            
-                bpy.ops.wm.obj_export(filepath=target_file, export_uv=False, 
+
+                bpy.ops.wm.obj_export(filepath=target_file, export_uv=False,
                                     export_normals=False, export_materials=False,
                                     export_selected_objects=True)
-                
+
                 # Also need to wipe the cache
                 if os.path.exists(os.path.join(dir_path, '__dawandcache__')):
                     clear_directory(os.path.join(dir_path, '__dawandcache__'))
@@ -364,7 +362,7 @@ class OnClick(bpy.types.Operator):
 
         elif self.step == steps.Preprocessing:
             try:
-                self.preprocess('tempobj.obj', dir_path)  
+                self.preprocess('tempobj.obj', dir_path)
             except IndexError:
                 self.report({'ERROR'}, f"Something went wrong when loading the mesh, ensure the object is selected before entering edit mode")
                 self.reset(context)
@@ -377,7 +375,7 @@ class OnClick(bpy.types.Operator):
                 self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
                 self.reset(context)
                 return {'CANCELLED'}
-       
+
         elif self.step == steps.Processing:
             self.process()
         else:
@@ -441,21 +439,21 @@ class Clear_Anchors(bpy.types.Operator):
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
         #hopefully remove the uvs
         uv_layer = bm.loops.layers.uv.active
         if uv_layer is not None:
             for i in range(len(bm.faces)):
                 for j in range(len(bm.faces[i].loops)):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
-       
+
         bmesh.update_edit_mesh(mesh)
-        
+
         #deselect
         bpy.ops.mesh.select_all(action='DESELECT')
 
         return {'FINISHED'}
-    
+
 class Clear_Sel(bpy.types.Operator):
     bl_idname = "clear.sel"
     bl_label = "clearsel"
@@ -468,12 +466,12 @@ class Clear_Sel(bpy.types.Operator):
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
         #deselect
         bpy.ops.mesh.select_all(action='DESELECT')
 
         return {'FINISHED'}
-    
+
 class Clear_UV(bpy.types.Operator):
     bl_idname = "clear.uv"
     bl_label = "clearuv"
@@ -488,17 +486,17 @@ class Clear_UV(bpy.types.Operator):
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
         uv_layer = bm.loops.layers.uv.active
         if uv_layer is not None:
             for i in range(len(bm.faces)):
                 for j in range(len(bm.faces[i].loops)):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
-       
+
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
-    
+
 class Unwrap(bpy.types.Operator):
     bl_idname = "unwrap.button"
     bl_label = "unwrapbutton"
@@ -514,7 +512,7 @@ class Unwrap(bpy.types.Operator):
         uvmode = wm.uv_mode
         newmap = wm.newmap
         freeze = wm.freeze
-        
+
         global dir_path
 
         #check if in edit mode
@@ -529,7 +527,7 @@ class Unwrap(bpy.types.Operator):
             if f.select:
                 select_for_unwrap.append(f.index)
 
-        #if we don't have any faces here, then nothing is selected 
+        #if we don't have any faces here, then nothing is selected
         if not select_for_unwrap:
             self.report({'ERROR'}, "Please select faces before unwrapping")
             return {'CANCELLED'}
@@ -551,7 +549,7 @@ class Unwrap(bpy.types.Operator):
         else:
             # Look for all faces with any valid UVs (within 0-1 range)
             done_faces = np.where(np.any(np.all((current_uvs > 0.0) & (current_uvs < 1.0), axis=2), axis=1))[0]
-        
+
 
         #if we want to preserve the old uvs
         if freeze:
@@ -565,8 +563,8 @@ class Unwrap(bpy.types.Operator):
                 bm.faces[face].select = True
         else:
             select_final = select_for_unwrap
-            
-        #if we don't have any faces here, we already have uvs  
+
+        #if we don't have any faces here, we already have uvs
         if not select_final:
             self.report({'ERROR'}, "All selected faces already have UVs, either select new faces, or turn off Preserve UVs")
             return {'CANCELLED'}
@@ -612,7 +610,7 @@ class Unwrap(bpy.types.Operator):
         if freeze and not newmap:
              for face in select_for_unwrap:
                 bm.faces[face].select = True
-        
+
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
@@ -706,7 +704,7 @@ def register_properties():
 
     bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
                                              description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
-    
+
     bpy.types.WindowManager.progress = FloatProperty(name="Total Progress", default=0,
                                                                      description='Progress of selection',
                                                                      min=0, max=100,

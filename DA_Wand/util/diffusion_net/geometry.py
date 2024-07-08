@@ -13,12 +13,16 @@ import sklearn.neighbors
 
 import robust_laplacian
 import potpourri3d as pp3d
-from .utils import toNP
 # NOTE: Remember that the directories are relative to the sys path in blender!!
 import sys
 sys.path.append('../../DA_Wand')
 import util.diffusion_net.utils as utils
 
+def toNP(x):
+    """
+    Really, definitely convert a torch tensor to a numpy array
+    """
+    return x.detach().to(torch.device('cpu')).numpy()
 
 def norm(x, highdim=False):
     """

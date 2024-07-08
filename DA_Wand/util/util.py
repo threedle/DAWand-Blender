@@ -477,7 +477,7 @@ def meshArea2D(vertices, faces, return_fareas = False):
 # ====================== Meshing =======================
 # Given face topology, return list of contiguous patches indexing into input face array
 def contiguous_patches(faces):
-    from models.layers.meshing import Topology
+    from models.layers.meshing.topology import Topology
     # Remap faces and build halfedge topology
     vkeys = np.sort(np.unique(faces))
     topo_map = np.zeros(np.max(vkeys)+1)
