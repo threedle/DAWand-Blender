@@ -7,7 +7,7 @@ import sys
 sys.path.append("..")
 from models.layers.meshing.mesh import Mesh
 from models.layers.meshing.analysis import computeDihedrals, computeFaceAreas, computeEdgeRatios, computeOppositeAngles, computeVertexNormals
-from models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals, computeHKS
+from models.layers.meshing.analysis import computeEdgeNeighborMatrix, computeFaceNeighborMatrix, computeFaceNormals
 from models.layers.meshing.io import PolygonSoup
 from pathlib import Path
 from util.diffusion_net.geometry import get_operators
