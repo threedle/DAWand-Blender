@@ -7,29 +7,16 @@
  - test install on windows
  - figure out why there is an attribute error on a triangulated suzanne monkey
 
-### Installation
-Two ways to install
-
-Download as a .zip
-
-*Option 1 - Direct Blender Install (preferred)*
- 1. Open Blender
- 2. Open the addons menu (Edit->Preferences->Add-ons)
- 3. Click 'install' in the top right
- 4. Click DAWand-Blender-main.zip. 
- 5. You may have to restart Blender
-
-*Option 2 - Blender File Paths (ideal for adjusting the code)*
- 1. Extract the .zip.  
- 2. Move DAWand-Blender-main to a new or existing 'my_scripts/addons' folder (it must be named this)
- 2. If you haven't already, set your file paths to this my_scripts folder
-
-After either of these has been done, go back to Edit->Preferences->Add-ons and search for "DA Wand"
-
-Click the check next to DA Wand, if you get a circular import error, just click again.
-
-At this point, a box that says "Install Dependencies" should appear. Click this to install DAWand's dependencies to Blender's Python - this may take a second, but the box should grey out
-
+## Installation
+1. Code -> Download ZIP
+2. Open Blender
+3. Open the addons menu (Edit->Preferences->Add-ons)
+4. Click 'install' in the top right
+5. Click DAWand-Blender-main.zip
+6. You may have to restart Blender
+7. Go back to Edit->Preferences->Add-ons and search for "DA Wand"
+8. Click the check next to DA Wand
+9. Click 'Install Dependencies', which will take a couple minutes to install. 
 
 ### Usage
 1. Load in any triangle mesh, and press tab to enter Edit mode
