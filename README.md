@@ -21,8 +21,5 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 6. Then, in the right-side settings menu, you can see more options and even unwrap the mesh.
 
 ## Credit  
-Code used for dependency install:  
-https://github.com/robertguetzkow/blender-python-examples/blob/master/add_ons/install_dependencies/install_dependencies.py
-
-Much of the organization is based on Rignet's, so thanks to them:  
-https://github.com/pKrime/brignet
+- Code used for dependency install: https://github.com/robertguetzkow/blender-python-examples/blob/master/add_ons/install_dependencies/install_dependencies.py
+- Much of the organization is based on Rignet's, so thanks to them: https://github.com/pKrime/brignet
