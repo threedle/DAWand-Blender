@@ -1,11 +1,5 @@
-# DA Wand for Blender v0.7.2
-
-### What's New
- - loading bar done
-### TODO
- - Warning checking on Blender unwrap - it works on SLIM unwrap, but proved incredibly hard to tell when the blender unwrap fails (it returns FINISHED even when it fails)
- - test install on windows
- - figure out why there is an attribute error on a triangulated suzanne monkey
+# DA Wand for Blender
+Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/threedle/DA-Wand)
 
 ## Installation
 1. Code -> Download ZIP
@@ -14,15 +8,21 @@
 4. Click 'install' in the top right
 5. Click DAWand-Blender-main.zip
 6. You may have to restart Blender
-7. Go back to Edit->Preferences->Add-ons and search for "DA Wand"
+7. Go back to Edit->Preferences->Add-ons and search for 'DA Wand'
 8. Click the check next to DA Wand
-9. Click 'Install Dependencies', which will take a couple minutes to install. 
+9. Click 'Install Dependencies', which will take a few minutes to install. 
 
-### Usage
-1. Load in any triangle mesh, and press tab to enter Edit mode
-2. There should be a wand in the tools on the left, select it to get started.
-3. Click on a face to select the region.
-3. If you want to see the new options, press 'n' or click the tiny left-facing arrow in the top right, and find DA Wand.
+## Usage
+1. Load in or create a triangle mesh. (You can triangulate any mesh using Blender's 'Triangulate Faces' option.
+2. Put the mesh into edit mode by pressing <kbd>tab</kbd>, or go the UV editing workspace on Blender.
+3. Press <kbd>n</kbd> to open the side panel, and click 'DAWand Options' to see the rest of the settings.
+4. To get DAWand, find the Wand icon in the tools in Edit mode.
+5. Click on a face to select the region.
+6. Then, in the right-side settings menu, you can see more options and even unwrap the mesh.
 
-### Code used for dependency install
+## Credit  
+Code used for dependency install:  
 https://github.com/robertguetzkow/blender-python-examples/blob/master/add_ons/install_dependencies/install_dependencies.py
+
+Much of the organization is based on Rignet's, so thanks to them:  
+https://github.com/pKrime/brignet
