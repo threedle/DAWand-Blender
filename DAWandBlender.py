@@ -290,9 +290,11 @@ class OnClick(bpy.types.Operator):
         wm = context.window_manager
         self.ff = wm.floodfill
         self.gc = wm.graphcuts
-
         if self.step == steps.Starting:
-            obj = context.object
+            for obj in context.selected_objects:
+                obj.select_set(False)
+            context.active_object.select_set(True)  
+            obj = context.active_object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
 
@@ -364,7 +366,7 @@ class OnClick(bpy.types.Operator):
             try:
                 self.preprocess('tempobj.obj', dir_path)
             except IndexError:
-                self.report({'ERROR'}, f"Something went wrong when loading the mesh, ensure the object is selected before entering edit mode")
+                self.report({'ERROR'}, f"Something went wrong when loading the mesh")
                 self.reset(context)
                 return {'CANCELLED'}
             except AssertionError:
