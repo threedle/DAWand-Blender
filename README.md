@@ -16,9 +16,25 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 1. Load in or create a triangle mesh. (You can triangulate any mesh using Blender's 'Triangulate Faces' option.
 2. Put the mesh into edit mode by pressing <kbd>tab</kbd>, or go the UV editing workspace on Blender.
 3. Press <kbd>n</kbd> to open the side panel, and click 'DAWand Options' to see the rest of the settings.
-4. To get DAWand, find the Wand icon in the tools in Edit mode.
+4. To get DAWand, find the Wand icon in the tools in Ed
+
+
+it mode.
 5. Click on a face to select the region.
 6. Then, in the right-side settings menu, you can see more options and even unwrap the mesh.
+
+
+## Videos
+### Selection
+https://github.com/user-attachments/assets/0691ffce-3cc9-46cb-872e-e713b0adef73
+
+### Unwrapping and adding image textures
+https://github.com/user-attachments/assets/8b9bf7a8-c3be-407a-9bcc-83f830dcdc30
+
+### Using SLIM unwrap
+https://github.com/user-attachments/assets/6c4c78de-22bd-4ffe-945c-9c835dfde319
+
+
 
 ## Credit  
 - Code used for dependency install: https://github.com/robertguetzkow/blender-python-examples/blob/master/add_ons/install_dependencies/install_dependencies.py
