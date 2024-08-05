@@ -26,14 +26,18 @@ it mode.
 
 ## Videos
 ### Selection
-https://github.com/user-attachments/assets/0691ffce-3cc9-46cb-872e-e713b0adef73
+
+https://github.com/user-attachments/assets/de6b9705-f640-4ade-94eb-0bb0b9758c03
+
 
 ### Unwrapping and adding image textures
-https://github.com/user-attachments/assets/8b9bf7a8-c3be-407a-9bcc-83f830dcdc30
+
+https://github.com/user-attachments/assets/f9b2acaa-0dc5-42f9-9b21-a801cd13ee35
+
 
 ### Using SLIM unwrap
-https://github.com/user-attachments/assets/6c4c78de-22bd-4ffe-945c-9c835dfde319
 
+https://github.com/user-attachments/assets/87a015ea-8c86-424c-953a-d9cf9027498d
 
 
 ## Credit  
