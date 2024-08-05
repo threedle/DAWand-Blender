@@ -16,10 +16,7 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 1. Load in or create a triangle mesh. (You can triangulate any mesh using Blender's 'Triangulate Faces' option.
 2. Put the mesh into edit mode by pressing <kbd>tab</kbd>, or go the UV editing workspace on Blender.
 3. Press <kbd>n</kbd> to open the side panel, and click 'DAWand Options' to see the rest of the settings.
-4. To get DAWand, find the Wand icon in the tools in Ed
-
-
-it mode.
+4. To get DAWand, find the Wand icon in the tools in Edit mode.
 5. Click on a face to select the region.
 6. Then, in the right-side settings menu, you can see more options and even unwrap the mesh.
 
