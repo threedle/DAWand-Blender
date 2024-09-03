@@ -40,9 +40,6 @@ def run_forward_pass(model, dataset, face_list, return_features=False):
 
 #Blender Call
 
-done_faces = [] # List of faces that have already been assigned
-vertex_set = None
-
 def uv_from_vert_first(uv_layer, v):
     for l in v.link_loops:
         uv_data = l[uv_layer]
@@ -70,6 +67,8 @@ class steps(Enum):
     Finished = 5
 
 dir_path = ""
+face_set = None
+vertex_set = None
 
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
@@ -290,9 +289,11 @@ class OnClick(bpy.types.Operator):
         wm = context.window_manager
         self.ff = wm.floodfill
         self.gc = wm.graphcuts
-
         if self.step == steps.Starting:
-            obj = context.object
+            for obj in context.selected_objects:
+                obj.select_set(False)
+            context.active_object.select_set(True)  
+            obj = context.active_object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
 
@@ -334,15 +335,48 @@ class OnClick(bpy.types.Operator):
                     bm.faces[face].select = True
 
         elif self.step == steps.Exporting:
+            global face_set
+            global vertex_set
+            obj = context.active_object
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
             # Only export if the current mesh vertex set has changed
+            
+            current_vertex_positions = np.array([v.co[:] for v in bm.verts])
+            current_face_positions = [np.array([v.co[:] for v in f.verts]) for f in bm.faces]
+
             mesh_changed = False
+
+            # Check if the vertex set has changed
             if vertex_set is None:
                 mesh_changed = True
+                vertex_set = current_vertex_positions
             else:
-                mesh_changed = not np.allclose(vertex_set, bm.verts)
+                try:
+                    mesh_changed = not np.allclose(vertex_set, current_vertex_positions)
+                except:
+                    mesh_changed = True
+            # Check if the face set has changed
+            if face_set is None:
+                mesh_changed = True
+                face_set = current_face_positions
+            else:
+                try:
+                    face_set_comparison = np.all(
+                        [np.allclose(face_set[i], current_face_positions[i]) for i in range(len(face_set))]
+                    )
+                    mesh_changed = mesh_changed or not face_set_comparison
+                except:
+                    mesh_changed = True
 
+            print("mesh changed: ", mesh_changed)
             global dir_path
             if mesh_changed:
+                # Update the vertex_set and face_set
+                vertex_set = current_vertex_positions
+                face_set = current_face_positions
+
                 dir_path = os.path.dirname(os.path.realpath(__file__))
                 target_file = os.path.join(dir_path, 'tempobj.obj')
 
@@ -362,13 +396,13 @@ class OnClick(bpy.types.Operator):
 
         elif self.step == steps.Preprocessing:
             try:
-                self.preprocess('tempobj.obj', dir_path)
+               self.preprocess('tempobj.obj', dir_path)
             except IndexError:
-                self.report({'ERROR'}, f"Something went wrong when loading the mesh, ensure the object is selected before entering edit mode")
+                self.report({'ERROR'}, f"Something went wrong when loading the mesh")
                 self.reset(context)
                 return {'CANCELLED'}
             except AssertionError:
-                self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
+                self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh.\nIf that doesn\'t work, make sure that there are no modifiers applied to the mesh.')
                 self.reset(context)
                 return {'CANCELLED'}
             # except AttributeError:
