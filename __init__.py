@@ -159,7 +159,7 @@ def register():
         pass
 
     if dependencies_installed:
-        from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
+        from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, MarkSeams, ClearSeams, register_properties, unregister_properties
 
         
         #bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
@@ -169,6 +169,8 @@ def register():
         bpy.utils.register_class(Unwrap)
         bpy.utils.register_class(Clear_Sel)
         bpy.utils.register_class(Clear_UV)
+        bpy.utils.register_class(MarkSeams)
+        bpy.utils.register_class(ClearSeams)
 
         #keymap garbage
         wm = bpy.context.window_manager
@@ -191,7 +193,7 @@ def register():
 
 def unregister():
 
-    from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, register_properties, unregister_properties
+    from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, MarkSeams, ClearSeams, register_properties, unregister_properties
 
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
@@ -207,6 +209,8 @@ def unregister():
     bpy.utils.unregister_class(Unwrap)
     bpy.utils.unregister_class(Clear_Sel)
     bpy.utils.unregister_class(Clear_UV)
+    bpy.utils.unregister_class(MarkSeams)
+    bpy.utils.unregister_class(ClearSeams)
     unregister_properties()
 
 

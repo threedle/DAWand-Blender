@@ -40,9 +40,6 @@ def run_forward_pass(model, dataset, face_list, return_features=False):
 
 #Blender Call
 
-done_faces = [] # List of faces that have already been assigned
-vertex_set = None
-
 def uv_from_vert_first(uv_layer, v):
     for l in v.link_loops:
         uv_data = l[uv_layer]
@@ -70,6 +67,8 @@ class steps(Enum):
     Finished = 5
 
 dir_path = ""
+face_set = None
+vertex_set = None
 
 class OnClick(bpy.types.Operator):
     bl_idname = "object.modal_operator"
@@ -290,9 +289,11 @@ class OnClick(bpy.types.Operator):
         wm = context.window_manager
         self.ff = wm.floodfill
         self.gc = wm.graphcuts
-
         if self.step == steps.Starting:
-            obj = context.object
+            for obj in context.selected_objects:
+                obj.select_set(False)
+            context.active_object.select_set(True)  
+            obj = context.active_object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
 
@@ -307,9 +308,7 @@ class OnClick(bpy.types.Operator):
                 return {'CANCELLED'}
 
             #save what is currently selected
-            for f in bm.faces:
-                if f.select:
-                    self.prevselected.append(f.index)
+            self.prevselected = [f.index for f in bm.faces if f.select]
 
             #MAIN SELECTION LOGIC
 
@@ -334,15 +333,48 @@ class OnClick(bpy.types.Operator):
                     bm.faces[face].select = True
 
         elif self.step == steps.Exporting:
+            global face_set
+            global vertex_set
+            obj = context.active_object
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
             # Only export if the current mesh vertex set has changed
+            
+            current_vertex_positions = np.array([v.co[:] for v in bm.verts])
+            current_face_positions = [np.array([v.co[:] for v in f.verts]) for f in bm.faces]
+
             mesh_changed = False
+
+            # Check if the vertex set has changed
             if vertex_set is None:
                 mesh_changed = True
+                vertex_set = current_vertex_positions
             else:
-                mesh_changed = not np.allclose(vertex_set, bm.verts)
+                try:
+                    mesh_changed = not np.allclose(vertex_set, current_vertex_positions)
+                except:
+                    mesh_changed = True
+            # Check if the face set has changed
+            if face_set is None:
+                mesh_changed = True
+                face_set = current_face_positions
+            else:
+                try:
+                    face_set_comparison = np.all(
+                        [np.allclose(face_set[i], current_face_positions[i]) for i in range(len(face_set))]
+                    )
+                    mesh_changed = mesh_changed or not face_set_comparison
+                except:
+                    mesh_changed = True
 
+            print("mesh changed: ", mesh_changed)
             global dir_path
             if mesh_changed:
+                # Update the vertex_set and face_set
+                vertex_set = current_vertex_positions
+                face_set = current_face_positions
+
                 dir_path = os.path.dirname(os.path.realpath(__file__))
                 target_file = os.path.join(dir_path, 'tempobj.obj')
 
@@ -362,13 +394,13 @@ class OnClick(bpy.types.Operator):
 
         elif self.step == steps.Preprocessing:
             try:
-                self.preprocess('tempobj.obj', dir_path)
+               self.preprocess('tempobj.obj', dir_path)
             except IndexError:
-                self.report({'ERROR'}, f"Something went wrong when loading the mesh, ensure the object is selected before entering edit mode")
+                self.report({'ERROR'}, f"Something went wrong when loading the mesh")
                 self.reset(context)
                 return {'CANCELLED'}
             except AssertionError:
-                self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh')
+                self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh.\nIf that doesn\'t work, make sure that there are no modifiers applied to the mesh.')
                 self.reset(context)
                 return {'CANCELLED'}
             # except AttributeError:
@@ -493,6 +525,63 @@ class Clear_UV(bpy.types.Operator):
                 for j in range(len(bm.faces[i].loops)):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
 
+        bmesh.update_edit_mesh(mesh)
+
+        return {'FINISHED'}
+    
+class MarkSeams(bpy.types.Operator):
+    bl_idname = "markseams.button"
+    bl_label = "markseams"
+    bl_description = "Marks the boundary of the selection as seams"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+        
+        # Reselect the previously selected faces
+        
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+        
+        selected_faces = [f.index for f in bm.faces if f.select]
+        bpy.ops.mesh.region_to_loop()
+        bpy.ops.mesh.mark_seam(clear=False)
+
+        for face_index in selected_faces:
+            bm.faces[face_index].select = True
+
+        bpy.ops.mesh.select_mode(type="FACE")
+        bmesh.update_edit_mesh(mesh)
+
+        return {'FINISHED'}
+    
+class ClearSeams(bpy.types.Operator):
+    bl_idname = "clearseams.button"
+    bl_label = "clearseams"
+    bl_description = "Clears all seams"
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+
+        if obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Please enter Edit Mode.")
+            return {'CANCELLED'}
+
+        selected_faces = [f.index for f in bm.faces if f.select]
+
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.mark_seam(clear=True)
+        
+        bpy.ops.mesh.select_all(action='DESELECT')
+        for face_index in selected_faces:
+            bm.faces[face_index].select = True
+
+        bpy.ops.mesh.select_mode(type="FACE")
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
@@ -635,7 +724,6 @@ class DA_Icon(bpy.types.WorkSpaceTool):
        )
 
 class DA_Menu(bpy.types.Panel):
-    #other UI - hopefully will open up on click
     bl_label = "DAWand Options"
     bl_idname = "DA_PT_Menu"
     bl_space_type = 'VIEW_3D'
@@ -664,6 +752,15 @@ class DA_Menu(bpy.types.Panel):
         row.operator(Clear_Anchors.bl_idname, text="Clear Selection and UVs")
 
         row = layout.row()
+        row.label(text="Seam options")
+        
+        row = layout.row()
+        row.operator(MarkSeams.bl_idname, text="Seams to Selection")
+
+        row = layout.row()
+        row.operator(ClearSeams.bl_idname, text="Clear Seams")
+
+        row = layout.row()
         row.label(text="Unwrap options")
 
         layout.prop(wm, "uv_mode")
@@ -673,6 +770,7 @@ class DA_Menu(bpy.types.Panel):
 
         row = layout.row()
         row.prop(wm, 'freeze')
+
 
         row = layout.row()
         row.operator(Unwrap.bl_idname, text="Unwrap")
