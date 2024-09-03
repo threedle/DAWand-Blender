@@ -20,6 +20,23 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 5. Click on a face to select the region.
 6. Then, in the right-side settings menu, you can see more options and even unwrap the mesh.
 
+
+## Videos
+### Selection
+
+https://github.com/user-attachments/assets/de6b9705-f640-4ade-94eb-0bb0b9758c03
+
+
+### Unwrapping and adding image textures
+
+https://github.com/user-attachments/assets/f9b2acaa-0dc5-42f9-9b21-a801cd13ee35
+
+
+### Using SLIM unwrap
+
+https://github.com/user-attachments/assets/87a015ea-8c86-424c-953a-d9cf9027498d
+
+
 ## Credit  
 - Code used for dependency install: https://github.com/robertguetzkow/blender-python-examples/blob/master/add_ons/install_dependencies/install_dependencies.py
 - Much of the organization is based on Rignet's, so thanks to them: https://github.com/pKrime/brignet
