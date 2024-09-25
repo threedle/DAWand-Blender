@@ -160,7 +160,6 @@ def register():
 
     if dependencies_installed:
         from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, MarkSeams, ClearSeams, register_properties, unregister_properties
-
         
         #bpy.utils.register_tool(DA_Icon, after={'builtin.scale_cage'}, separator=True, group=True)
         bpy.utils.register_class(OnClick)

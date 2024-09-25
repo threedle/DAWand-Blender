@@ -403,10 +403,10 @@ class OnClick(bpy.types.Operator):
                 self.report({'ERROR'},  'Only triangle meshes are supported. Try "Triangulate Faces" to use DA Wand on this mesh.\nIf that doesn\'t work, make sure that there are no modifiers applied to the mesh.')
                 self.reset(context)
                 return {'CANCELLED'}
-            # except AttributeError:
-            #     self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
-            #     self.reset(context)
-            #     return {'CANCELLED'}
+            except AttributeError:
+                self.report({'ERROR'},  'Something went wrong, likely due to the mesh having disconnected components, so DA Wand may not work on this mesh')
+                self.reset(context)
+                return {'CANCELLED'}
 
         elif self.step == steps.Processing:
             self.process()
@@ -479,6 +479,8 @@ class Clear_Anchors(bpy.types.Operator):
                 for j in range(len(bm.faces[i].loops)):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
 
+        bpy.ops.mesh.uv_texture_remove()
+        
         bmesh.update_edit_mesh(mesh)
 
         #deselect
@@ -524,6 +526,8 @@ class Clear_UV(bpy.types.Operator):
             for i in range(len(bm.faces)):
                 for j in range(len(bm.faces[i].loops)):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
+
+        bpy.ops.mesh.uv_texture_remove()
 
         bmesh.update_edit_mesh(mesh)
 
@@ -600,7 +604,7 @@ class Unwrap(bpy.types.Operator):
         #variables needed for unwrapping
         uvmode = wm.uv_mode
         newmap = wm.newmap
-        freeze = wm.freeze
+        overwrite = wm.freeze
 
         global dir_path
 
@@ -641,7 +645,7 @@ class Unwrap(bpy.types.Operator):
 
 
         #if we want to preserve the old uvs
-        if freeze:
+        if not overwrite:
             #remove the done uvs from the selection list
             select_final = [face for face in select_for_unwrap if face not in done_faces]
             #select final will be what we unwrap, but we will remember
@@ -655,7 +659,9 @@ class Unwrap(bpy.types.Operator):
 
         #if we don't have any faces here, we already have uvs
         if not select_final:
-            self.report({'ERROR'}, "All selected faces already have UVs, either select new faces, or turn off Preserve UVs")
+            self.report({'ERROR'}, "All selected faces already have UVs, either select new faces, or turn on Overwrite UVs")
+            for face in select_for_unwrap:
+                bm.faces[face].select = True
             return {'CANCELLED'}
 
 
@@ -696,7 +702,7 @@ class Unwrap(bpy.types.Operator):
                     subv = v_to_subv[v.index]
                     loop[uv_layer].uv = slimuv[subv]
 
-        if freeze and not newmap:
+        if not overwrite and not newmap:
              for face in select_for_unwrap:
                 bm.faces[face].select = True
 
@@ -723,8 +729,9 @@ class DA_Icon(bpy.types.WorkSpaceTool):
        ('object.modal_operator', {'type': 'LEFTMOUSE', 'value': 'CLICK'}, {'properties': []}),
        )
 
+
 class DA_Menu(bpy.types.Panel):
-    bl_label = "DAWand Options"
+    bl_label = "DA Wand"
     bl_idname = "DA_PT_Menu"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -736,7 +743,7 @@ class DA_Menu(bpy.types.Panel):
         wm = context.window_manager
 
         row = layout.row()
-        row.label(text="Segmentation Options")
+        row.label(text="Segmentation")
 
         row = layout.row()
         row.prop(wm, 'floodfill')
@@ -751,17 +758,15 @@ class DA_Menu(bpy.types.Panel):
         row = layout.row()
         row.operator(Clear_Anchors.bl_idname, text="Clear Selection and UVs")
 
+     
         row = layout.row()
-        row.label(text="Seam options")
-        
+        row.label(text="Unwrap")
+
         row = layout.row()
         row.operator(MarkSeams.bl_idname, text="Seams to Selection")
 
         row = layout.row()
         row.operator(ClearSeams.bl_idname, text="Clear Seams")
-
-        row = layout.row()
-        row.label(text="Unwrap options")
 
         layout.prop(wm, "uv_mode")
 
@@ -776,11 +781,13 @@ class DA_Menu(bpy.types.Panel):
         row.operator(Unwrap.bl_idname, text="Unwrap")
 
         if wm.progress > 0:
-            row = layout.row()
+            box = layout.box()
+            row = box.row()
             step = steps(int(wm.progress / 20))
             row.label(text=f"{step.name}...")
-            row = layout.row()
+            row = box.row()
             row.prop(wm, 'progress', slider=True)
+
 
 
 def register_properties():
@@ -800,8 +807,8 @@ def register_properties():
     bpy.types.WindowManager.newmap = BoolProperty(name='Generate New UVMap', default=False,
                                             description='Generates a new UVmap on unwrap')
 
-    bpy.types.WindowManager.freeze = BoolProperty(name='Preserve Current UVs', default=False,
-                                             description='If checked, this will only unwrap the new selection, preserving the UVs from previous unwraps')
+    bpy.types.WindowManager.freeze = BoolProperty(name='Overwrite UVs', default=True,
+                                             description='If checked, this will overwrite any UVs that overlap with the current selection, otherwise it will preserve the UVs from previous unwraps')
 
     bpy.types.WindowManager.progress = FloatProperty(name="Total Progress", default=0,
                                                                      description='Progress of selection',
