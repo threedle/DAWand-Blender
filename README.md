@@ -10,7 +10,9 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 6. You may have to restart Blender
 7. Go back to Edit->Preferences->Add-ons and search for 'DA Wand'
 8. Click the check next to DA Wand
-9. Click 'Install Dependencies', which will take a few minutes to install. 
+9. Click 'Install Dependencies', which will take a few minutes to install.
+
+**Windows users:** Run Blender with administrator privileges for the install stage
 
 ## Usage
 1. Load in or create a triangle mesh. (You can triangulate any mesh using Blender's 'Triangulate Faces' option.
