@@ -807,7 +807,7 @@ def register_properties():
     bpy.types.WindowManager.newmap = BoolProperty(name='Generate New UVMap', default=False,
                                             description='Generates a new UVmap on unwrap')
 
-    bpy.types.WindowManager.freeze = BoolProperty(name='Overwrite UVs', default=True,
+    bpy.types.WindowManager.freeze = BoolProperty(name='Overwrite UVs', default=False,
                                              description='If checked, this will overwrite any UVs that overlap with the current selection, otherwise it will preserve the UVs from previous unwraps')
 
     bpy.types.WindowManager.progress = FloatProperty(name="Total Progress", default=0,
