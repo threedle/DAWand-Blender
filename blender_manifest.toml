@@ -1,0 +1,68 @@
+schema_version = "1.0.0"
+
+# Example of manifest file for a Blender extension
+# Change the values according to your extension
+id = "DA_WAND"
+version = "1.0.0"
+name = "DAWand"
+tagline = "Neural Mesh Selection"
+maintainer = "Ron Kiehn & Richard Liu <ronki@uchicago.edu>"
+# Supported types: "add-on", "theme"
+type = "add-on"
+
+# # Optional: link to documentation, support, source files, etc
+website = "https://github.com/threedle/DAWand-Blender/"
+
+# # Optional: tag list defined by Blender and server, see:
+# # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
+tags = ["Mesh", "UV"]
+
+blender_version_min = "4.2.0"
+
+# https://docs.blender.org/manual/en/dev/advanced/extensions/licenses.html
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+platforms = ["windows-x64", "macos-x64", "macos-arm64", "linux-x86_64"]
+
+wheels = [
+    #all platforms
+    "./wheels/dill-0.3.4-py2.py3-none-any.whl",
+    "./wheels/python_igraph-0.10.1-py3-none-any.whl",
+
+    # windows-x64
+    "./wheels/libigl-2.5.1-cp310-cp310-win_amd64.whl",
+    "./wheels/matplotlib-3.5.1-cp310-cp310-win_amd64.whl",
+    "./wheels/potpourri3d-0.0.7-cp310-cp310-win_amd64.whl",
+    "./wheels/robust_laplacian-0.2.4-cp310-cp310-win_amd64.whl",
+    "./wheels/scikit_learn-1.5.2-cp310-cp310-win_amd64.whl",
+    "./wheels/scipy-1.9.0-cp310-cp310-win_amd64.whl",
+    "./wheels/torch-1.11.0-cp310-cp310-win_amd64.whl",
+
+    # macos-x64
+    "./wheels/libigl-2.5.1-cp310-cp310-macosx_11_0_arm64.whl",
+    "./wheels/matplotlib-3.5.1-cp310-cp310-macosx_10_9_x86_64.whl",
+    "./wheels/potpourri3d-0.0.7-cp310-cp310-macosx_10_9_x86_64.whl",
+    "./wheels/robust_laplacian-0.2.4-cp310-cp310-macosx_10_9_x86_64.whl",
+    "./wheels/scikit_learn-1.5.2-cp310-cp310-macosx_10_9_x86_64.whl",
+    "./wheels/scipy-1.9.0-cp310-cp310-macosx_12_0_universal2.macosx_10_9_x86_64.whl",
+    "./wheels/torch-1.11.0-cp310-none-macosx_10_9_x86_64.whl",
+
+    # macos-arm64
+    "./wheels/matplotlib-3.5.1-cp310-cp310-macosx_11_0_arm64.whl",
+    "./wheels/potpourri3d-0.0.7-cp310-cp310-macosx_11_0_arm64.whl",
+    "./wheels/robust_laplacian-0.2.4-cp310-cp310-macosx_11_0_arm64.whl",
+    "./wheels/scikit_learn-1.5.2-cp310-cp310-macosx_10_9_x86_64.whl",
+    "./wheels/scipy-1.9.0-cp310-cp310-macosx_12_0_universal2.macosx_10_9_x86_64.whl",
+    "./wheels/torch-1.11.0-cp310-none-macosx_11_0_arm64.whl",
+
+    # linux-x86_64
+    "./wheels/libigl-2.5.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/matplotlib-3.5.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/potpourri3d-0.0.7-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/robust_laplacian-0.2.4-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/scikit_learn-1.5.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/scipy-1.9.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+    "./wheels/torch-1.11.0-cp310-cp310-manylinux1_x86_64.whl"
+]
