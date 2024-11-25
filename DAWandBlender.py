@@ -5,21 +5,18 @@ from bpy.props import IntProperty, BoolProperty, FloatProperty, PointerProperty,
 import sys
 import os
 
-dir_path = (os.path.dirname(os.path.realpath(__file__)))
-sys.path.append(os.path.join(dir_path, 'DA_Wand'))
+extension_directory = bpy.utils.extension_path_user(__package__, path="", create=True)
 
-from data.dawand_data import DAWandData
-from models.create_model import create_model
-from models.layers.meshing.mesh import Mesh
-from models.layers.meshing.io import PolygonSoup
-from models.networks import floodfill_scalar_v2
-from util.util import graphcuts, clear_directory
+from .DA_Wand.data.dawand_data import DAWandData
+from .DA_Wand.models.create_model import create_model
+from .DA_Wand.models.layers.meshing.mesh import Mesh
+from .DA_Wand.models.layers.meshing.io import PolygonSoup
+from .DA_Wand.models.networks import floodfill_scalar_v2
+from .DA_Wand.util.util import graphcuts, clear_directory, SLIM
 
 import dill as pickle
 import numpy as np
 import torch
-import random
-from pathlib import Path
 from enum import Enum
 
 def run_forward_pass(model, dataset, face_list, return_features=False):
@@ -292,7 +289,7 @@ class OnClick(bpy.types.Operator):
         if self.step == steps.Starting:
             for obj in context.selected_objects:
                 obj.select_set(False)
-            context.active_object.select_set(True)  
+            context.active_object.select_set(True)
             obj = context.active_object
             mesh = obj.data
             bm = bmesh.from_edit_mesh(mesh)
@@ -340,7 +337,7 @@ class OnClick(bpy.types.Operator):
             bm = bmesh.from_edit_mesh(mesh)
 
             # Only export if the current mesh vertex set has changed
-            
+
             current_vertex_positions = np.array([v.co[:] for v in bm.verts])
             current_face_positions = [np.array([v.co[:] for v in f.verts]) for f in bm.faces]
 
@@ -480,7 +477,7 @@ class Clear_Anchors(bpy.types.Operator):
                     bm.faces[i].loops[j][uv_layer].uv = (0, 0)
 
         bpy.ops.mesh.uv_texture_remove()
-        
+
         bmesh.update_edit_mesh(mesh)
 
         #deselect
@@ -532,7 +529,7 @@ class Clear_UV(bpy.types.Operator):
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
-    
+
 class MarkSeams(bpy.types.Operator):
     bl_idname = "markseams.button"
     bl_label = "markseams"
@@ -542,13 +539,13 @@ class MarkSeams(bpy.types.Operator):
         obj = context.object
         mesh = obj.data
         bm = bmesh.from_edit_mesh(mesh)
-        
+
         # Reselect the previously selected faces
-        
+
         if obj.mode != 'EDIT':
             self.report({'ERROR'}, "Please enter Edit Mode.")
             return {'CANCELLED'}
-        
+
         selected_faces = [f.index for f in bm.faces if f.select]
         bpy.ops.mesh.region_to_loop()
         bpy.ops.mesh.mark_seam(clear=False)
@@ -560,7 +557,7 @@ class MarkSeams(bpy.types.Operator):
         bmesh.update_edit_mesh(mesh)
 
         return {'FINISHED'}
-    
+
 class ClearSeams(bpy.types.Operator):
     bl_idname = "clearseams.button"
     bl_label = "clearseams"
@@ -580,7 +577,7 @@ class ClearSeams(bpy.types.Operator):
 
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.mark_seam(clear=True)
-        
+
         bpy.ops.mesh.select_all(action='DESELECT')
         for face_index in selected_faces:
             bm.faces[face_index].select = True
@@ -678,7 +675,6 @@ class Unwrap(bpy.types.Operator):
             #Attempt to unwrap
             bpy.ops.uv.unwrap()
         elif uvmode == "SLIM":
-            from util.util import SLIM
 
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
             polymesh = Mesh(soup.vertices, soup.indices)
@@ -758,7 +754,7 @@ class DA_Menu(bpy.types.Panel):
         row = layout.row()
         row.operator(Clear_Anchors.bl_idname, text="Clear Selection and UVs")
 
-     
+
         row = layout.row()
         row.label(text="Unwrap")
 

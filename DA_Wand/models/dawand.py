@@ -1,12 +1,10 @@
 import torch
-from . import networks
+from .networks import define_classifier
 import os
 from os.path import join
-import sys
-sys.path.append('../DA_Wand')
 import numpy as np
 from pathlib import Path
-from models.layers.meshing.mesh import Mesh
+from .layers.meshing.mesh import Mesh
 torch.autograd.set_detect_anomaly(False)
 
 class DAWand:
@@ -30,7 +28,7 @@ class DAWand:
         self.input_nc = opt.input_nc
 
         # load/define networks
-        self.net = networks.define_classifier(opt, self.input_nc, opt.ncf, self.gpu_ids, opt.init_type, opt.init_gain)
+        self.net = define_classifier(opt, self.input_nc, opt.ncf, self.gpu_ids, opt.init_type, opt.init_gain)
         self.net.train(self.is_train)
 
         self.loss_fcn = torch.nn.BCELoss()

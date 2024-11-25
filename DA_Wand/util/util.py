@@ -1,15 +1,10 @@
-from __future__ import print_function
 import torch
 import numpy as np
 import os
 import time
 from pathlib import Path
-import scipy
 import shutil
-#import fresnel don't need for blender I guess
-import sys
-sys.path.append('../DA_Wand')
-from models.layers.meshing.analysis import computeDihedrals
+from ..models.layers.meshing.analysis import computeDihedrals
 
 
 def time_function(func):
@@ -245,61 +240,11 @@ def graphcuts(preds, mesh, boundaryval=0.2):
     gc = g.mincut(source, sink, capacity=list(capacity))
     sourcefs, sinkfs = gc.partition
 
-    # Visualize
-    # import polyscope as ps
-    # ps.init()
-    # ps_mesh = ps.register_surface_mesh("squirrel", mesh.vertices, mesh.faces, edge_width=1)
-    # ps_mesh.add_scalar_quantity("og preds", preds, defined_on='faces', enabled=True, cmap="viridis")
-
-    # gcpreds = np.zeros_like(preds)
-    # gcpreds[sourcefs] = 1
-    # ps_mesh.add_scalar_quantity("gc preds", gcpreds, defined_on='faces', enabled=True, cmap="viridis")
-
-    # # Add source and sink locations
-    # ps_source = ps.register_point_cloud("source", np.mean(mesh.vertices[mesh.faces[source]], axis=0, keepdims=True), enabled=True, radius=.01)
-    # ps_source = ps.register_point_cloud("sink", np.mean(mesh.vertices[mesh.faces[sink]], axis=0, keepdims=True), enabled=True, radius=.01)
-
-    # ps.show()
-
     # Return new preds
     newpreds = np.zeros_like(preds)
     newpreds[sourcefs] = 1
 
     return newpreds
-
-# OLD AND SHITTY
-# def graphcuts(preds, mesh, pairwise=None, unary=-15, anchors=None):
-#     from pygco import cut_from_graph
-#     face_adj = np.array([[edge.halfedge.face.index, edge.halfedge.twin.face.index] for key, edge in sorted(mesh.topology.edges.items())])
-
-#     if not hasattr(mesh, "dihedrals"):
-#         computeDihedrals(mesh)
-
-#     dihedrals = np.clip(np.pi - mesh.dihedrals, 0, np.pi).squeeze()
-
-#     # TODO: maybe send all dihedrals past 90* to smoothness cost 0
-#     # Maps dihedrals from 0 => infty
-#     smoothness = -np.log(dihedrals/np.pi + 1e-15)
-#     edges = np.ceil(np.concatenate([face_adj, smoothness[:,None]], axis=1)).astype(np.int32)
-
-#     if pairwise is None:
-#         pairwise = 0 * np.eye(2, dtype=np.int32)
-#         pairwise[0,1] = 10
-#         pairwise[1,0] = 10
-
-#     # TODO: scale unary costs by geodesic distance with gaussian dropoff
-#     # Selection nearby: super high weight, rapidly drop down as moves further away
-#     # Non-selection: fixed cost regardless of distance
-#     unaries = np.ones((len(preds), 2))
-#     unaries[:, 1] = (preds - 0.5) * unary
-#     unaries[:, 0] = -unaries[:, 1]
-#     # Assign large value to anchor
-#     if anchors is not None:
-#         unaries[anchors, 1] = -10000
-#         unaries[anchors,0] = 10000
-#     unaries = unaries.astype(np.int32)
-#     cut_graph = cut_from_graph(edges, unaries, pairwise, n_iter=-1, algorithm='swap')
-#     return cut_graph
 
 # NOTE: This assumes default view direction of (0, 0, -r)
 def get_camera_from_view(elev, azim, r=2.0):
@@ -336,69 +281,6 @@ def polyscope_edge_perm(mesh):
             raise ValueError(f"No match found for polyscope edge {edge}")
     return np.array(edge_p)
 
-def export_views(mesh, savedir, n=5, n_sample=20, width=150, height=150, plotname="Views", filename="test", vcolors=None,
-                 device="cpu", outline_width=0.005, anchor_fs=None):
-    import matplotlib, matplotlib.cm
-
-    fresnel_device = fresnel.Device(mode=device)
-    scene = fresnel.Scene(device=fresnel_device)
-    vertices, faces, _ = mesh.export_soup()
-    fnormals = mesh.facenormals
-    fverts = vertices[faces].reshape(3 * len(faces), 3)
-    mesh = fresnel.geometry.Mesh(scene, vertices=fverts, N=1)
-    mesh.material = fresnel.material.Material(color=fresnel.color.linear([0.25, 0.5, 0.9]), roughness=0.1)
-    mesh.outline_material = fresnel.material.Material(color=(0., 0., 0.), roughness=0.1, metal=1.)
-    if vcolors is not None:
-        mesh.color[:] = fresnel.color.linear(vcolors)
-    mesh.material.primitive_color_mix = 1.0
-    mesh.outline_width=outline_width
-
-    # New primitives for anchors
-    if anchor_fs is not None:
-        anchor_f_inds = faces[anchor_fs]
-        # Offset from surface to make visible
-        anchor_fverts = vertices[anchor_f_inds] + (fnormals[anchor_fs]*0.01).reshape(len(anchor_fs), 3, 1)
-        anchor_fverts = anchor_fverts.reshape(3 * len(anchor_f_inds), 3)
-        anchor_mesh = fresnel.geometry.Mesh(scene, vertices=anchor_fverts, N=1)
-        anchor_mesh.material = fresnel.material.Material(color=fresnel.color.linear([1.0, 1.0, 1.0]), roughness=0.1)
-        anchor_mesh.outline_material = fresnel.material.Material(color=(0., 0., 0.), roughness=0.1, metal=1.)
-        anchor_mesh.outline_width = outline_width * 1.5
-        anchor_mesh.material.primitive_color_mix = 0.0
-
-    scene.lights = fresnel.light.cloudy()
-
-    # TODO: maybe initializing with fitting gives better camera angles
-    scene.camera = fresnel.camera.Orthographic.fit(scene, margin=0)
-    # TODO: initialize to viewing ray that connects origin and average of anchor positions
-    # Radius is just largest vertex norm
-    r = np.max(np.linalg.norm(vertices))
-    elevs = torch.linspace(0, 2 * np.pi, n+1)[:n]
-    azims = torch.linspace(-np.pi, np.pi, n+1)[:n]
-    renders = []
-    for i in range(len(elevs)):
-        elev = elevs[i]
-        azim = azims[i]
-        # Then views are just linspace
-        # Loop through all camera angles and collect outputs
-        pos, lookat, _ = get_camera_from_view(elev, azim, r=r)
-        scene.camera.look_at = lookat
-        scene.camera.position = pos
-        out = fresnel.pathtrace(scene, samples=n_sample, w=width,h=height)
-        renders.append(out[:])
-    # Plot and save in matplotlib using imshow
-    import matplotlib.pyplot as plt
-    # plt.subplots_adjust(wspace=0, hspace=0)
-    fig, axs = plt.subplots(nrows=1, ncols=len(renders), gridspec_kw={'wspace':0, 'hspace':0}, figsize=(15, 4), squeeze=True)
-    for i in range(len(renders)):
-        render = renders[i]
-        axs[i].set_xticks([])
-        axs[i].set_yticks([])
-        axs[i].imshow(render, interpolation='lanczos')
-    fig.suptitle(plotname)
-    fig.tight_layout()
-    plt.savefig(os.path.join(savedir, filename))
-    plt.cla()
-    plt.close()
 
 # Convert each triangle into local coordinates: A -> (0,0), B -> (x2, 0), C -> (x3, y3)
 def get_local_tris(vertices, faces, device=torch.device("cpu")):
@@ -782,70 +664,6 @@ def cut_vertex(mesh, vind):
         currenthe.vertex = newv
 
         heset = heset.difference(visited)
-
-def run_slim(mesh, cut=True, verbose=False, time=False):
-    did_cut = False
-    if mesh.topology.hasNonManifoldEdges():
-        print(f"run_slim: Non-manifold edges found.")
-        return None, None, did_cut
-
-    if cut:
-        if time:
-            import time
-            t0 = time.time()
-
-        # Check for nonmanifold vertices while only one boundary
-        if mesh.topology.hasNonManifoldVertices():
-            print(f"Cutting nonmanifold vertices: {mesh.topology.nonmanifvs}")
-            for vind in mesh.topology.nonmanifvs:
-                cut_vertex(mesh, vind)
-
-        if len(mesh.topology.boundaries) > 1:
-            cut_to_disk(mesh, verbose)
-            did_cut = True
-
-        # Check for nonmanifold vertices while only one boundary
-        if mesh.topology.hasNonManifoldVertices():
-            print(f"Cutting nonmanifold vertices: {mesh.topology.nonmanifvs}")
-            for vind in mesh.topology.nonmanifvs:
-                cut_vertex(mesh, vind)
-
-        if not hasattr(mesh, "vertexangle"):
-            from models.layers.meshing.analysis import computeVertexAngle
-            computeVertexAngle(mesh)
-
-        # Cut cones
-        # Only cut cones if one boundary exists
-        singlevs = np.where(2 * np.pi - mesh.vertexangle >= np.pi/2)[0]
-        if len(singlevs) >= 0 and len(mesh.topology.boundaries) == 1: # Edge case: no boundaries
-            cut_to_disk_single(mesh, singlevs, verbose)
-            did_cut = True
-
-        # Check for nonmanifold vertices while only one boundary
-        if mesh.topology.hasNonManifoldVertices():
-            print(f"Cutting nonmanifold vertices: {mesh.topology.nonmanifvs}")
-            for vind in mesh.topology.nonmanifvs:
-                cut_vertex(mesh, vind)
-
-        # Don't parameterize nonmanifold after cut
-        if mesh.topology.hasNonManifoldEdges():
-            print(f"run_slim: Cut mesh has nonmanifold edges.")
-            return None, None, did_cut
-
-        if time:
-            import time
-            print(f"Cutting took {time.time() - t0:0.3f} sec.")
-
-    # Compute SLIM
-    try:
-        uvmap, energy = SLIM(mesh)
-    except Exception as e:
-        print(e)
-        return None, None, did_cut
-
-    assert len(uvmap) == len(mesh.vertices), f"UV: {uvmap.shape}, vs: {mesh.vertices.shape}"
-
-    return uvmap, energy, did_cut
 
 def get_ss(mesh, uvmap):
     import igl
