@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np 
 
 class MeshConv(nn.Module):
     """ Computes convolution between edges and 4 incident (1-ring) edge neighbors
@@ -25,44 +24,44 @@ class MeshConv(nn.Module):
         G = self.build_GeMM_linear(x, mesh)
         x = self.conv(G).transpose(2,1).unsqueeze(3)
         return x
-    
+
     def build_GeMM_linear(self, x, mesh):
-        # Input dim: M x C x E 
+        # Input dim: M x C x E
         x = x.transpose(2,1)
-        
-        image = [] 
+
+        image = []
         for i in range(len(mesh)):
             # Build edge index map
             tmp_mesh = mesh[i]
             tmp_x = x[i]
-            
+
             edge_keys = torch.tensor(list(sorted(tmp_mesh.topology.edges.keys())))
             topo_edge_map = torch.zeros(torch.max(edge_keys)+1).long()
-            topo_edge_map[edge_keys] = torch.arange(len(edge_keys))            
+            topo_edge_map[edge_keys] = torch.arange(len(edge_keys))
             mesh_image = tmp_x[topo_edge_map[torch.from_numpy(tmp_mesh.edgemat)]].transpose(2,1)
             mesh_image = torch.nn.functional.pad(mesh_image, (0,0,0,0,0,tmp_x.shape[0] - mesh_image.shape[0]))
             image.append(mesh_image)
-        
+
         try:
             image = torch.stack(image).contiguous() # M x E x C x 5
-        except Exception as e: 
+        except Exception as e:
             print(e)
             image = torch.stack(image)
-        
+
         # Apply symmetric operations
         x_1 = image[:, :, :, 1] + image[:, :, :, 3]
         x_2 = image[:, :, :, 2] + image[:, :, :, 4]
         x_3 = torch.abs(image[:, :, :, 1] - image[:, :, :, 3])
         x_4 = torch.abs(image[:, :, :, 2] - image[:, :, :, 4])
-       
+
         image = torch.cat([image[:, :, :, 0], x_1, x_2, x_3, x_4], dim=2) # M x E x C*5
         return image
-    
+
     def build_GeMM(self, x, mesh):
         def get_edge_nbr_index(edge):
             inds = [edge.index, edge.halfedge.next.edge.index, edge.halfedge.next.next.edge.index,
                         edge.halfedge.twin.next.edge.index, edge.halfedge.twin.next.next.edge.index]
-            return inds  
+            return inds
         image = []
         for i in range(len(mesh)):
             # Build edge index map
@@ -77,7 +76,7 @@ class MeshConv(nn.Module):
             for e_id in edge_keys:
                 edge = tmp_mesh.topology.edges[e_id.item()]
                 mesh_neighborhood.append(tmp_x[:,topo_edge_map[get_edge_nbr_index(edge)]]) # C x 5
-                
+
             mesh_neighborhood = torch.stack(mesh_neighborhood) # E x C x 5
             # Pad to fixed number of edges
             mesh_neighborhood = torch.nn.functional.pad(mesh_neighborhood, (0,0,0,0,0,tmp_x.shape[1] - mesh_neighborhood.shape[0]))
@@ -89,7 +88,7 @@ class MeshConv(nn.Module):
         x_2 = image[:, :, :, 2] + image[:, :, :, 4]
         x_3 = torch.abs(image[:, :, :, 1] - image[:, :, :, 3])
         x_4 = torch.abs(image[:, :, :, 2] - image[:, :, :, 4])
-        
+
         image = torch.stack([image[:, :, :, 0], x_1, x_2, x_3, x_4], dim=3)
         return image
 

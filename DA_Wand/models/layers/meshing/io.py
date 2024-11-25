@@ -15,23 +15,23 @@ class PolygonSoup():
     def __init__(self, vertices, indices, uvs=None, face_uv=None, normals=None, face_normals=None):
         vertices = np.asarray(vertices, dtype=np.float32)
         indices = np.asarray(indices, dtype=np.uint32)
-        if uvs is not None: 
+        if uvs is not None:
             uvs = np.asarray(uvs, dtype=np.float32)
-        if face_uv is not None: 
+        if face_uv is not None:
             face_uv = np.asarray(face_uv, dtype=np.uint32)
-        if normals is not None: 
+        if normals is not None:
             normals = np.asarray(normals, dtype=np.float32)
-        if face_normals is not None: 
+        if face_normals is not None:
             face_normals = np.asarray(face_normals, dtype=np.uint32)
-            
+
         assert vertices.shape[1] == 3, "`vertices` must be an Nx3 array"
         assert indices.shape[1] == 3, "`faces` must be an Mx3 array"
         self.vertices = vertices
         self.indices = indices
-        self.uvs = uvs 
+        self.uvs = uvs
         self.face_uv = face_uv
-        self.normals = normals 
-        self.face_normals = face_normals 
+        self.normals = normals
+        self.face_normals = face_normals
 
     def __eq__(self, other):
         # need to sort the fields so that comparison makes sense
@@ -63,10 +63,10 @@ class PolygonSoup():
         """
         vertices = []
         indices = []
-        f_uv = [] 
-        f_normals = [] 
-        normals = [] 
-        uvs = [] 
+        f_uv = []
+        f_normals = []
+        normals = []
+        uvs = []
         with open(fname, "r") as f_handle:
             for line in f_handle:
                 line = line.strip()
@@ -82,18 +82,18 @@ class PolygonSoup():
                         f"only triangle meshes are supported, got face index {line}"
 
                     face_indices = []
-                    face_uv = [] 
-                    face_normals = [] 
-                    for i in range(3): 
+                    face_uv = []
+                    face_normals = []
+                    for i in range(3):
                         inx = tokens[i+1].split("/")
                         assert len(inx) > 0, f"Expected face indices to have at least one value in line {line}"
-                        if len(inx) > 0: 
+                        if len(inx) > 0:
                             face_indices.append(int(inx[0])-1)
                         if len(inx) > 1 and inx[1] != "":
                             face_uv.append(int(inx[1])-1)
-                        if len(inx) > 2 and inx[2] != "": 
+                        if len(inx) > 2 and inx[2] != "":
                             face_normals.append(int(inx[2])-1)
-                        
+
                     # for i in range(3):
                     #     inx = tokens[1 + i].split("/")[0]  # throw away texture index, etc
                     #     inx = int(inx)
@@ -107,7 +107,7 @@ class PolygonSoup():
                         f_uv.append(face_uv)
                     if len(face_normals) > 0:
                         f_normals.append(face_normals)
-                        
+
                 elif identifier == "vn":
                     assert len(tokens) == 4, f"Expected vertex normals to be 3D in line {line}"
                     normals.append(
@@ -119,17 +119,17 @@ class PolygonSoup():
                         [float(tokens[1]), float(tokens[2])]
                     )
 
-        if len(uvs) == 0: 
-            uvs = None 
-        if len(normals) == 0: 
-            normals = None 
+        if len(uvs) == 0:
+            uvs = None
+        if len(normals) == 0:
+            normals = None
         if len(f_uv) == 0:
-            f_uv = None 
-        if len(f_normals) == 0: 
-            f_normals = None 
-            
+            f_uv = None
+        if len(f_normals) == 0:
+            f_normals = None
+
         return cls(vertices, indices, uvs, f_uv, normals, f_normals)
-        
+
     @classmethod
     def to_obj(cls, fname, soup):
         raise NotImplementedError()

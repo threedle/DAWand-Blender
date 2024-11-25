@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 from threading import Thread
-from . meshing.analysis import computeEdgeNeighborMatrix
-import numpy as np
-from heapq import heappop, heapify
+from .meshing.analysis import computeEdgeNeighborMatrix
+from heapq import heapify
 from .meshing.edit import EdgeCollapse
-from torch.nn import ConstantPad2d
 from collections import defaultdict
 
 class MeshPool(nn.Module):
@@ -19,7 +17,7 @@ class MeshPool(nn.Module):
         self.__meshes = None
         self.__merge_edges = [-1, -1]
         self.__save_pool_weights = save_pool_weights
-        self.__order = order 
+        self.__order = order
 
     def __call__(self, fe, meshes):
         return self.forward(fe, meshes)
@@ -31,7 +29,7 @@ class MeshPool(nn.Module):
         pool_threads = []
         self.__fe = fe
         self.__meshes = meshes
-    
+
         # iterate over batch
         for mesh_index in range(len(meshes)):
             if self.__multi_thread:
@@ -44,7 +42,7 @@ class MeshPool(nn.Module):
                 pool_threads[mesh_index].join()
         # Pad updated features to new max-edge mesh
         new_target = max([fe.shape[1] for fe in self.__updated_fe])
-        
+
         for i in range(len(self.__updated_fe)):
             fe = self.__updated_fe[i]
             diff = new_target - fe.shape[1]
@@ -52,7 +50,7 @@ class MeshPool(nn.Module):
                 self.__updated_fe[i] = torch.nn.functional.pad(fe, (0, diff, 0, 0))
         out_features = torch.stack(self.__updated_fe)
         # Feature channels always stays same
-        assert out_features.shape[1] == self.__fe.shape[1], f"MeshPool: Expected channel dims {self.__fe.shape[1]}, got shape {out_features.shape}" 
+        assert out_features.shape[1] == self.__fe.shape[1], f"MeshPool: Expected channel dims {self.__fe.shape[1]}, got shape {out_features.shape}"
         # Reverse unpool lists
         for key, val in self.__unpools.items():
             self.__unpools[key] = list(reversed(val))
@@ -67,22 +65,22 @@ class MeshPool(nn.Module):
         edges_count = len(edge_keys)
         # NOTE: This is padded -- take only the non-padded features
         fe = self.__fe[mesh_index][:,:edges_count]
-        
+
         topo_to_inds = torch.zeros(torch.max(edge_keys) + 1).long().to(fe.device)
         topo_to_inds[edge_keys] = torch.arange(edges_count).to(fe.device)
-        inds_to_topo = edge_keys 
-        
+        inds_to_topo = edge_keys
+
         if self.__order == "similarity":
-            edge_neighbors = torch.tensor([list(set([edge.index for edge in mesh.topology.edges[e.item()].halfedge.face.adjacentEdges()] + 
+            edge_neighbors = torch.tensor([list(set([edge.index for edge in mesh.topology.edges[e.item()].halfedge.face.adjacentEdges()] +
                                            [edge.index for edge in mesh.topology.edges[e.item()].halfedge.twin.face.adjacentEdges()]))[1:] for e in edge_keys]).to(fe.device)
             edge_neighbor_inds = topo_to_inds[edge_neighbors]
-            similarities = torch.mean(torch.sum((fe.unsqueeze(2) - fe[:,edge_neighbor_inds])**2, dim=0), dim=1) 
+            similarities = torch.mean(torch.sum((fe.unsqueeze(2) - fe[:,edge_neighbor_inds])**2, dim=0), dim=1)
             assert len(similarities) == fe.shape[1], f"MeshPool similarity: expected edge count {fe.shape[1]}, got {len(similarities)} edge comparisons"
             sorted_edge_ids = torch.argsort(similarities)
         elif self.__order == "neighborsim":
-            # Collapse edges for which the corresponding neighbors are most similar 
+            # Collapse edges for which the corresponding neighbors are most similar
             edge_neighbors = torch.stack([
-                                        torch.tensor([[edge.index for edge in mesh.topology.edges[e.item()].halfedge.face.adjacentEdges() if e != edge.index] for e in edge_keys]), 
+                                        torch.tensor([[edge.index for edge in mesh.topology.edges[e.item()].halfedge.face.adjacentEdges() if e != edge.index] for e in edge_keys]),
                                         torch.tensor([[edge.index for edge in mesh.topology.edges[e.item()].halfedge.twin.face.adjacentEdges() if e != edge.index] for e in edge_keys])
                                           ], dim=-1).to(fe.device)
             edge_neighbor_inds = topo_to_inds[edge_neighbors]
@@ -91,8 +89,8 @@ class MeshPool(nn.Module):
             assert len(similarities) == fe.shape[1], f"MeshPool similarity: expected edge count {fe.shape[1]}, got {len(similarities)} edge comparisons"
             sorted_edge_ids = torch.argsort(similarities)
         elif self.__order == "anchordot":
-            # Rank based on average dot product between anchor edge features and other edge features 
-            # First normalize all features 
+            # Rank based on average dot product between anchor edge features and other edge features
+            # First normalize all features
             fe_norm = fe/torch.linalg.norm(fe, dim=0)
             anchor_fs = mesh.anchor_fs
             # Aggregate all edge features associated with anchor vertices
@@ -109,8 +107,8 @@ class MeshPool(nn.Module):
             anchorscore = torch.mean(anchorscore.squeeze(), dim=1)
             sorted_edge_ids = torch.argsort(anchorscore)
         elif self.__order == "revanchordot":
-            # Pool highest similarity first 
-            # First normalize all features 
+            # Pool highest similarity first
+            # First normalize all features
             fe_norm = fe/torch.linalg.norm(fe, dim=0)
             anchor_fs = mesh.anchor_fs
             # Aggregate all edge features associated with anchor vertices
@@ -128,13 +126,13 @@ class MeshPool(nn.Module):
             sorted_edge_ids = torch.argsort(anchorscore, descending=True)
         elif self.__order == "norm":
             sorted_edge_ids = torch.argsort(torch.sum(fe ** 2, dim=0))
-        
+
         ordered_edge_keys = inds_to_topo[sorted_edge_ids].cpu().tolist()
         assert edges_count == len(ordered_edge_keys), f"MeshPool similarity: expected edge count {edges_count}, got {len(ordered_edge_keys)} sorted keys"
         # NOTE: With this method, we will not COMPUTE the pooling iteratively (i.e. pooling will all be done with the ORIGINAL features)
         pool_mat = torch.eye(fe.shape[1], device=fe.device) # E x E (original edge count)
         # print(f"Pooling for mesh {mesh_index}. Initial edges count: {edges_count}. Target: {self.__out_target}.")
-        pool_count = 0 
+        pool_count = 0
         # Don't let mesh flatten beyond tetrahedron
         while pool_count < self.__out_target and edges_count >= 4:
             success = False
@@ -142,7 +140,7 @@ class MeshPool(nn.Module):
                 edt = EdgeCollapse(mesh, edge_key)
                 if edt.do_able:
                     # Only necessary external check: edge doesn't collapse an anchor face
-                    incident_faces = [mesh.topology.edges[edge_key].halfedge.face.index, 
+                    incident_faces = [mesh.topology.edges[edge_key].halfedge.face.index,
                                       mesh.topology.edges[edge_key].halfedge.twin.face.index]
                     if incident_faces[0] in mesh.anchor_fs or incident_faces[1] in mesh.anchor_fs:
                         continue
@@ -174,14 +172,14 @@ class MeshPool(nn.Module):
             # If we run through all valid keys, then collapsing is over
             if success == False:
                 break
-        
+
         fe = torch.matmul(fe, pool_mat)
-        fe /= torch.sum(pool_mat, dim=0, keepdim=True) # Mean 
+        fe /= torch.sum(pool_mat, dim=0, keepdim=True) # Mean
         self.__updated_fe[mesh_index] = fe[:, topo_to_inds[list(sorted(mesh.topology.edges.keys()))]]
-    
-        # Recompute edge neighborhood matrix 
+
+        # Recompute edge neighborhood matrix
         computeEdgeNeighborMatrix(mesh)
-        
+
         # Edges consistent for topology and features
         assert edges_count == self.__updated_fe[mesh_index].shape[1], f"MeshPool: expected edge counts {edges_count}, got features with {self.__updated_fe[mesh_index].shape[1]} edges"
 
