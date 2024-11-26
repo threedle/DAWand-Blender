@@ -52,14 +52,14 @@ def register():
 
 def unregister():
 
-    from DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, MarkSeams, ClearSeams, register_properties, unregister_properties
+    from .DAWandBlender import OnClick, DA_Icon, DA_Menu, Clear_Anchors, Clear_UV, Clear_Sel, Unwrap, MarkSeams, ClearSeams, register_properties, unregister_properties
 
     for km, kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
     addon_keymaps.clear()
 
-    bpy.utils.unregister_class(OnClick)
     bpy.utils.unregister_tool(DA_Icon)
+    bpy.utils.unregister_class(OnClick)
     bpy.utils.unregister_class(DA_Menu)
     bpy.utils.unregister_class(Clear_Anchors)
     bpy.utils.unregister_class(Unwrap)
