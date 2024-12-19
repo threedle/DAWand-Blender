@@ -9,7 +9,7 @@ website = "https://github.com/threedle/DAWand-Blender/"
 tags = ["Mesh", "UV"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
-platforms = ["windows-x64", "macos-x64", "macos-arm64", "linux-x86_64"][permissions]
+platforms = ["windows-x64", "macos-x64", "macos-arm64", "linux-x86_64"]
 files = "Export/import meshes for segmentation"
 wheels = [
     # Common

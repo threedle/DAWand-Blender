@@ -796,7 +796,7 @@ def register_properties():
         description = "select an option",
         items = [
             ('BLENDERUNWRAP', 'Blender Unwrap', "Uses Blender's built-in unwrap"),
-            ('SLIM', 'Slim', 'Uses SLIM Unwrap'),
+            # ('SLIM', 'Slim', 'Uses SLIM Unwrap'),
         ]
     )
 
