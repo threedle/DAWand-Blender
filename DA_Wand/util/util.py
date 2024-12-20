@@ -602,8 +602,6 @@ def tutte_embedding(vertices, faces):
     assert not np.isnan(bnd_uv).any()
     uv_init = igl.harmonic_weights(vertices, faces, bnd, np.array(bnd_uv, dtype=vertices.dtype), 1)
 
-    return uv_init
-
 def tutte_embedding_v2(vertices, faces):
     import igl
     bnd = igl.boundary_loop(faces)
@@ -613,7 +611,7 @@ def tutte_embedding_v2(vertices, faces):
 
     ## Map the boundary to a circle
     bnd_uv = igl.map_vertices_to_circle(vertices, bnd)
-    uv_initial_guess = igl.harmonic(vertices, faces, bnd, bnd_uv, 1)
+    uv_initial_guess = igl.harmonic_weights(vertices, faces, bnd, bnd_uv, 1)
 
     ## Harmonic parametrization for the internal vertices
     assert not np.isnan(bnd).any(), f"NaN found in boundary loop!"
@@ -629,8 +627,10 @@ def SLIM(vertices, faces, iters = 500):
     vertices = vertices.astype(np.double)
     uv_init, bnd, bnd_uv = tutte_embedding_v2(vertices, faces)
 
-    slim = igl.SLIM(vertices, faces, uv_init, bnd, bnd_uv, igl.SLIM_ENERGY_TYPE_SYMMETRIC_DIRICHLET, 4.01)
+    slim = igl.SLIM(vertices, faces, uv_init, bnd, bnd_uv, igl.SLIM_ENERGY_TYPE_ARAP, 0.0)
+
     slim.solve(iters)
+
     slim_uv = slim.vertices()
     slim_uv -= slim_uv.mean(axis = 0)
     return slim_uv, slim.energy()

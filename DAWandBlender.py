@@ -675,7 +675,6 @@ class Unwrap(bpy.types.Operator):
             #Attempt to unwrap
             bpy.ops.uv.unwrap()
         elif uvmode == "SLIM":
-
             soup = PolygonSoup.from_obj(os.path.join(dir_path, 'tempobj.obj'))
             polymesh = Mesh(soup.vertices, soup.indices)
             subvs, subfs = polymesh.export_submesh(select_final)
@@ -683,11 +682,18 @@ class Unwrap(bpy.types.Operator):
             v_to_subv = np.zeros(len(polymesh.vertices), dtype=int)
             v_to_subv[polymesh.faces[select_final].flatten()] = subfs.flatten()
 
+            # submesh = Mesh(subvs, subfs)
+            # submesh.export_obj("/Users/guanzhi/Documents/Graphics/DAWand-Blender", "submesh")
+            # raise
+
             try:
                 slimuv, slimenergy = SLIM(subvs, subfs)
-            except:
+            except Exception as e:
+                print(e)
                 self.report({'ERROR'}, "SLIM unwrap failed, likely because it was unable to solve islands")
                 return {'CANCELLED'}
+
+            print("SLIM DONE")
 
             uv_layer = bm.loops.layers.uv.active
 
