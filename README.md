@@ -3,6 +3,9 @@ Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/th
 
 https://github.com/user-attachments/assets/b66537a4-4f9a-4595-ba66-99f2b80f24c5
 
+## Extensions Store
+DAWand is now available on the Blender extensions store! [Link here](https://extensions.blender.org/approval-queue/da-wand/)
+
 ## Installation
 1. Code -> Download ZIP
 2. Open Blender
