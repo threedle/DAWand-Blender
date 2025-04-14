@@ -1,7 +1,7 @@
 # DA Wand for Blender
 Add-on that runs Richard Liu and 3DL's DAWand in Blender. (https://github.com/threedle/DA-Wand)
 
-<video src="promo.mp4" width="1280" height="720" controls></video>
+https://github.com/user-attachments/assets/b66537a4-4f9a-4595-ba66-99f2b80f24c5
 
 ## Installation
 1. Code -> Download ZIP
